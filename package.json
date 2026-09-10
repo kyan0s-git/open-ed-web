@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "fixtures": "node scripts/make-fixtures.mjs",
-    "size": "node scripts/check-size.mjs"
+    "size": "node scripts/check-size.mjs",
+    "pretest": "npm run fixtures"
   },
   "dependencies": {
     "@tanstack/react-router": "^1.170.0",
