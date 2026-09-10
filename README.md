@@ -1,0 +1,45 @@
+# open-ed-web
+
+Read MIT OpenCourseWare course archives as structured, mastery-tracked courses.
+
+Everything runs in the browser. A course `.zip` never leaves your machine: it is stored
+once in the browser's private file system and read by random access, so a 250 MB course
+costs one write and no unpacking. Your progress lives in a portable `progress.json` you
+can export, back up, or keep in a synced folder — there is no server and no database to run.
+
+## Status
+
+Early. The importer and content model are in place; the reader and mastery layers are next.
+
+## Development
+
+```
+npm install
+npm run fixtures   # build the synthetic course archives used by tests
+npm run test
+npm run dev
+```
+
+## How an OCW archive is read
+
+A downloaded OCW course is an offline copy of the published Hugo site. Two things make it
+machine-readable rather than something to scrape:
+
+- OCW's Hugo config declares `coursedata` and `contentmap` output formats, so the site
+  publishes a `data.json` beside **every** page (front-matter params merged with rendered
+  content) and a `content_map.json` mapping every content uid to its path.
+- Ordering and nesting are *not* in that JSON — Hugo keeps menu definitions out of page
+  params — but the rendered sidebar carries `data-uuid` on every entry.
+
+So content comes from JSON and structure comes from the rendered nav. Archives without the
+JSON outputs fall back to HTML parsing; pre-2022 IMS packages are detected and reported
+rather than guessed at.
+
+Videos are excluded from OCW archives, but each video resource carries its YouTube id, so
+lecture video works without shipping any media.
+
+## License
+
+Code is MIT. Course content is not redistributed by this project — it stays on your machine.
+MIT OpenCourseWare materials are licensed CC BY-NC-SA; the reader displays each course's
+attribution and license.
