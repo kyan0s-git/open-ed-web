@@ -12,9 +12,10 @@ import {
 import type { Detection } from "./detect";
 import { parseNavTree, type NavEntry } from "./nav";
 import type { OcwContentMap, OcwCourseData, OcwPageData } from "./ocw-types";
-import { extractQuizItems } from "./quiz";
+import { extractQuizItems, stripQuizMarkup } from "./quiz";
 import { htmlToText, extractHeadings } from "./html-text";
 import type { Archive } from "./zip";
+import { initDom } from "./dom";
 
 export interface ParseOptions {
   courseId: string;
@@ -35,6 +36,8 @@ export async function parseOcwHugoJson(
   detection: Detection,
   options: ParseOptions,
 ): Promise<CourseBundle> {
+  await initDom();
+
   const { base } = detection;
   const warnings: string[] = [];
   const report = options.onProgress ?? (() => {});
@@ -87,7 +90,13 @@ export async function parseOcwHugoJson(
       continue;
     }
 
-    const html = data.content ?? "";
+    const source = data.content ?? "";
+    const skillId = `${options.courseId}:${node.uid}`;
+    const questions = extractQuizItems(source, { skillId, pageUid: node.uid });
+
+    // Store the page without the quiz source: the extracted questions replace it.
+    const html = questions.length > 0 ? stripQuizMarkup(source) : source;
+
     pages.push({
       uid: node.uid,
       html,
@@ -96,8 +105,7 @@ export async function parseOcwHugoJson(
     });
 
     // One skill per content page: this is the unit the mastery layer schedules.
-    if (html.trim().length > 0) {
-      const skillId = `${options.courseId}:${node.uid}`;
+    if (source.trim().length > 0) {
       skills.push({
         id: skillId,
         courseId: options.courseId,
@@ -105,7 +113,7 @@ export async function parseOcwHugoJson(
         nodeUid: node.uid,
         order: skills.length,
       });
-      exercises.push(...extractQuizItems(html, { skillId, pageUid: node.uid }));
+      exercises.push(...questions);
     }
   }
 

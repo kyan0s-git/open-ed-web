@@ -15,13 +15,16 @@
     "test:watch": "vitest",
     "fixtures": "node scripts/make-fixtures.mjs",
     "size": "node scripts/check-size.mjs",
-    "pretest": "npm run fixtures"
+    "pretest": "npm run fixtures",
+    "verify": "npm run build && npm run size && npm test",
+    "e2e": "npm run fixtures && npx playwright test"
   },
   "dependencies": {
     "@tanstack/react-router": "^1.170.0",
     "@zip.js/zip.js": "^2.14.0",
     "dexie": "^4.4.6",
     "dompurify": "^3.2.7",
+    "linkedom": "^0.18.13",
     "minisearch": "^7.2.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
@@ -30,6 +33,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

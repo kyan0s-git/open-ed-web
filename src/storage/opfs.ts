@@ -86,7 +86,8 @@ export async function deleteCourseArchive(courseId: string): Promise<void> {
  */
 export async function writeFileAtomic(name: string, contents: string): Promise<void> {
   const home = await root();
-  const temp = `${name}.tmp`;
+  // A unique temp name: two writes landing at once must not share a scratch file.
+  const temp = `${name}.${crypto.randomUUID()}.tmp`;
 
   const tempHandle = await home.getFileHandle(temp, { create: true });
   const writable = await tempHandle.createWritable();
@@ -107,6 +108,27 @@ export async function writeFileAtomic(name: string, contents: string): Promise<v
   await fallback.write(contents);
   await fallback.close();
   await home.removeEntry(temp).catch(() => {});
+}
+
+/** Rename a file, used to set a damaged file aside rather than destroy it. */
+export async function renameFile(from: string, to: string): Promise<void> {
+  const home = await root();
+  const handle = await home.getFileHandle(from);
+  const movable = handle as FileSystemFileHandle & {
+    move?: (dest: FileSystemDirectoryHandle | string, name?: string) => Promise<void>;
+  };
+
+  if (typeof movable.move === "function") {
+    await movable.move(to);
+    return;
+  }
+
+  const contents = await (await handle.getFile()).text();
+  const target = await home.getFileHandle(to, { create: true });
+  const writable = await target.createWritable();
+  await writable.write(contents);
+  await writable.close();
+  await home.removeEntry(from).catch(() => {});
 }
 
 export async function readFileText(name: string): Promise<string | null> {

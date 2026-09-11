@@ -1,0 +1,131 @@
+/*
+ * Design tokens.
+ *
+ * Decisions, so later edits know what was deliberate:
+ *
+ * - Type is system stacks only. No webfont bytes at all, which is the point of a
+ *   project with a 150 KB budget. Course prose is serif and app chrome is sans, so it
+ *   is always obvious which text is MIT's and which is ours.
+ * - Two hues with separate jobs: clay means "you can act here", teal means "you know
+ *   this" and carries the mastery ramp. Nothing else is coloured.
+ * - Deliberately not MIT red. This is an independent reader and should not imply
+ *   any affiliation with MIT.
+ * - Neutrals carry a slight warm cast so long reading sessions are less clinical than
+ *   a stock grey ramp.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-prose: ui-serif, Charter, Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Warm neutral ramp, picked rather than inherited from a framework. */
+  --paper: #fbfaf8;
+  --paper-raised: #ffffff;
+  --paper-sunken: #f2f0ec;
+  --rule: #e0ddd6;
+  --rule-strong: #c8c4ba;
+  --ink: #1c1a17;
+  --ink-muted: #6a655d;
+  --ink-faint: #918b81;
+
+  --clay: #a84f28;
+  --clay-strong: #8d4020;
+  --clay-wash: #f7ece6;
+
+  /* Mastery ramp: one hue, four steps, so level reads as depth not category. */
+  --teal-1: #cfded9;
+  --teal-2: #7fb0a6;
+  --teal-3: #3d8177;
+  --teal-4: #17564f;
+  --teal-wash: #e8f1ee;
+
+  --warn: #8a5a00;
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+
+  --measure: 68ch;
+  --sidebar-width: 19rem;
+
+  --step--1: 0.8125rem;
+  --step-0: 0.9375rem;
+  --step-1: 1.0625rem;
+  --step-2: 1.375rem;
+  --step-3: 1.875rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #14130f;
+    --paper-raised: #1c1a16;
+    --paper-sunken: #100f0c;
+    --rule: #302c26;
+    --rule-strong: #453f37;
+    --ink: #eae6de;
+    --ink-muted: #a49d91;
+    --ink-faint: #7b7469;
+
+    --clay: #d98553;
+    --clay-strong: #eda274;
+    --clay-wash: #2a1d14;
+
+    --teal-1: #24423d;
+    --teal-2: #3d7a70;
+    --teal-3: #63a99d;
+    --teal-4: #93cabf;
+    --teal-wash: #16241f;
+
+    --warn: #d7a24a;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--step-0);
+  line-height: 1.55;
+}
+
+a {
+  color: var(--clay);
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--clay-strong);
+}
+
+:focus-visible {
+  outline: 2px solid var(--clay);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

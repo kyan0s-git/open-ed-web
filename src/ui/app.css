@@ -1,0 +1,567 @@
+/* Layout and shared components. Structure follows what each screen is for. */
+
+.shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  gap: 1.25rem;
+  padding: 0.7rem clamp(1rem, 3vw, 2rem);
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-raised);
+}
+
+.topbar__mark {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.topbar__mark:hover {
+  color: var(--clay);
+}
+
+.topbar nav {
+  display: flex;
+  gap: 1rem;
+  margin-left: auto;
+  font-size: var(--step--1);
+}
+
+.topbar nav a {
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+
+.topbar nav a:hover,
+.topbar nav a[data-status="active"] {
+  color: var(--clay);
+}
+
+.topbar__due {
+  display: inline-block;
+  margin-left: 0.35em;
+  padding: 0 0.4em;
+  border-radius: 999px;
+  background: var(--clay);
+  color: var(--paper-raised);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+}
+
+.page {
+  width: 100%;
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 3vw, 2rem) 5rem;
+}
+
+.page--wide {
+  max-width: none;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: var(--step-3);
+  margin: 0 0 0.25em;
+}
+
+.lede {
+  max-width: var(--measure);
+  color: var(--ink-muted);
+  margin: 0 0 2rem;
+}
+
+/* Buttons: one shape, two weights. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.45em 0.9em;
+  border: 1px solid var(--clay);
+  border-radius: var(--radius-md);
+  background: var(--clay);
+  color: var(--paper-raised);
+  font-size: var(--step--1);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--clay-strong);
+  border-color: var(--clay-strong);
+  color: var(--paper-raised);
+}
+
+.btn--quiet {
+  background: transparent;
+  border-color: var(--rule-strong);
+  color: var(--ink);
+}
+
+.btn--quiet:hover {
+  background: var(--paper-sunken);
+  border-color: var(--ink-faint);
+  color: var(--ink);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Course library: a list of real courses, not a grid of feature cards. */
+.library {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.library li {
+  border-bottom: 1px solid var(--rule);
+}
+
+.library a {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.25rem 1.5rem;
+  padding: 1rem 0.25rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.library a:hover {
+  background: var(--paper-sunken);
+}
+
+.library__number {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  color: var(--ink-muted);
+}
+
+.library__title {
+  font-size: var(--step-1);
+  font-weight: 600;
+}
+
+.library__meta {
+  grid-column: 1 / -1;
+  font-size: var(--step--1);
+  color: var(--ink-faint);
+}
+
+/* Mastery: one hue, four steps, so level reads as depth. */
+.mastery {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: var(--step--1);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.mastery__bar {
+  display: flex;
+  gap: 2px;
+}
+
+.mastery__tick {
+  width: 0.5rem;
+  height: 0.85rem;
+  border-radius: 1px;
+  background: var(--rule);
+}
+
+.mastery__tick[data-on="1"] {
+  background: var(--teal-2);
+}
+
+.mastery__tick[data-level="3"][data-on="1"],
+.mastery__tick[data-level="4"][data-on="1"] {
+  background: var(--teal-3);
+}
+
+.mastery__tick[data-level="4"][data-on="1"] {
+  background: var(--teal-4);
+}
+
+/* Drop target for an archive. */
+.dropzone {
+  display: grid;
+  place-items: center;
+  gap: 0.75rem;
+  padding: clamp(2rem, 8vw, 4.5rem) 1.5rem;
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--radius-md);
+  background: var(--paper-raised);
+  text-align: center;
+}
+
+.dropzone[data-over="true"] {
+  border-color: var(--clay);
+  background: var(--clay-wash);
+}
+
+.dropzone__hint {
+  max-width: 40ch;
+  font-size: var(--step--1);
+  color: var(--ink-muted);
+}
+
+.progressbar {
+  width: min(28rem, 100%);
+  height: 4px;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  overflow: hidden;
+}
+
+.progressbar span {
+  display: block;
+  height: 100%;
+  background: var(--clay);
+  transition: width 120ms linear;
+}
+
+.notice {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--rule-strong);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--radius-sm);
+  background: var(--paper-raised);
+  font-size: var(--step--1);
+}
+
+.notice--error {
+  border-left-color: var(--clay);
+}
+
+.notice h2 {
+  margin: 0 0 0.35rem;
+  font-size: var(--step-0);
+}
+
+.notice ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--ink-muted);
+}
+
+.empty {
+  padding: 3rem 0;
+  color: var(--ink-muted);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Reader: persistent course nav beside a single reading column. */
+.reader {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  align-items: start;
+  min-height: calc(100dvh - 3.2rem);
+}
+
+/*
+ * The sidebar is sticky, so it cannot stretch to fill its column and its background
+ * would stop wherever the list ends. Painting the column on the grid itself keeps the
+ * rule running the full height however short the contents are.
+ */
+@media (min-width: 52.01rem) {
+  .reader {
+    background: linear-gradient(
+      to right,
+      var(--paper-sunken) 0 calc(var(--sidebar-width) - 1px),
+      var(--rule) calc(var(--sidebar-width) - 1px) var(--sidebar-width),
+      var(--paper) var(--sidebar-width)
+    );
+  }
+
+  .coursenav {
+    background: transparent;
+    border-right: 0;
+  }
+}
+
+@media (max-width: 52rem) {
+  .reader {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.coursenav {
+  position: sticky;
+  top: 0;
+  max-height: calc(100dvh - 3.2rem);
+  overflow-y: auto;
+  padding: 1.25rem 1rem 3rem;
+  border-right: 1px solid var(--rule);
+  background: var(--paper-sunken);
+  font-size: var(--step--1);
+}
+
+@media (max-width: 52rem) {
+  .coursenav {
+    position: static;
+    max-height: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+}
+
+.coursenav__course {
+  display: block;
+  margin-bottom: 1rem;
+  font-weight: 600;
+  font-size: var(--step-0);
+  color: inherit;
+  text-decoration: none;
+}
+
+.coursenav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.coursenav ul ul {
+  margin-left: 0.7rem;
+  border-left: 1px solid var(--rule);
+  padding-left: 0.6rem;
+}
+
+.coursenav a {
+  display: block;
+  padding: 0.25rem 0.4rem;
+  border-radius: var(--radius-sm);
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+
+.coursenav a:hover {
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+.coursenav a[data-current="true"] {
+  background: var(--clay-wash);
+  color: var(--clay-strong);
+  font-weight: 600;
+}
+
+.coursenav a[data-done="true"]::after {
+  content: " ·";
+  color: var(--teal-3);
+}
+
+/* Course prose: serif, measured, so it reads like the document it came from. */
+.prose {
+  max-width: var(--measure);
+  font-family: var(--font-prose);
+  font-size: var(--step-1);
+  line-height: 1.65;
+}
+
+.prose h2 {
+  margin: 2rem 0 0.6rem;
+  font-size: var(--step-2);
+}
+
+.prose h3 {
+  margin: 1.6rem 0 0.5rem;
+  font-size: var(--step-1);
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--step-0);
+}
+
+.prose th,
+.prose td {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--rule);
+  text-align: left;
+}
+
+.prose pre {
+  overflow-x: auto;
+  padding: 0.8rem;
+  border-radius: var(--radius-sm);
+  background: var(--paper-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+}
+
+.tablewrap {
+  overflow-x: auto;
+}
+
+/* Resources attached to a page. */
+.resources {
+  max-width: var(--measure);
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+}
+
+.resources h2 {
+  margin: 0 0 0.75rem;
+  font-size: var(--step-0);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+}
+
+.resources ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.resources li a {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--paper-raised);
+  text-decoration: none;
+  color: inherit;
+}
+
+.resources li a:hover {
+  border-color: var(--clay);
+}
+
+.resources__kind {
+  font-size: var(--step--1);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.viewer {
+  width: 100%;
+  height: min(80vh, 900px);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--paper-sunken);
+}
+
+.video {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  max-width: var(--measure);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #000;
+}
+
+.video iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* Self-assessment: four ratings, one row. */
+.rate {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.rate button {
+  flex: 1 1 auto;
+  min-width: 7rem;
+  padding: 0.6rem 0.5rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-md);
+  background: var(--paper-raised);
+  cursor: pointer;
+}
+
+.rate button:hover {
+  border-color: var(--teal-3);
+  background: var(--teal-wash);
+}
+
+.rate small {
+  display: block;
+  color: var(--ink-faint);
+  font-size: 0.75rem;
+}
+
+.choice {
+  display: block;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-md);
+  background: var(--paper-raised);
+  cursor: pointer;
+  font-family: var(--font-prose);
+}
+
+.choice:hover {
+  border-color: var(--clay);
+}
+
+.choice[data-state="correct"] {
+  border-color: var(--teal-3);
+  background: var(--teal-wash);
+}
+
+.choice[data-state="wrong"] {
+  border-color: var(--clay);
+  background: var(--clay-wash);
+}
+
+.stack {
+  display: grid;
+  gap: 1rem;
+  max-width: var(--measure);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}

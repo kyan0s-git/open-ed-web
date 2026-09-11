@@ -8,6 +8,7 @@
  * `a[data-uuid]` inside `li.course-nav-list-item`, and child lists are nested in
  * `ul.course-nav-child-nav`. Document order is menu weight order.
  */
+import { parseHtmlDocument } from "./dom";
 
 export interface NavEntry {
   uid: string;
@@ -20,7 +21,7 @@ export interface NavEntry {
 }
 
 export function parseNavTree(html: string): NavEntry[] {
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  const doc = parseHtmlDocument(html);
   const nav = doc.querySelector("nav.course-nav");
   if (!nav) return [];
 

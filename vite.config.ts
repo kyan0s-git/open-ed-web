@@ -7,21 +7,15 @@ export default defineConfig({
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
+  // The import worker code-splits (it loads its HTML parser lazily), which rules out
+  // the default iife worker format. It is constructed with { type: "module" } to match.
+  worker: { format: "es" },
   build: {
     target: "es2022",
-    // Keep the reader shell small: heavy, optional pieces must stay in their own
-    // lazy chunks so they never land in the initial payload. See scripts/check-size.mjs.
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes("katex")) return "katex";
-          if (id.includes("@zip.js")) return "zip";
-          if (id.includes("ts-fsrs")) return "fsrs";
-          if (id.includes("minisearch")) return "search";
-          return undefined;
-        },
-      },
-    },
+    // Chunking is left to Rollup's reachability analysis on purpose. Hand-written
+    // manualChunks produced shared chunks that Vite then preloaded from index.html,
+    // pulling the archive reader into the initial payload even though only lazy routes
+    // use it. The budget in scripts/check-size.mjs is what keeps this honest.
   },
   test: {
     // The importer parses course HTML with DOMParser, which the browser provides

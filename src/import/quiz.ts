@@ -1,4 +1,5 @@
 import type { ExerciseItem } from "@/content/schema";
+import { parseHtmlDocument } from "./dom";
 
 /**
  * Pull gradable questions out of OCW's own multiple-choice markup.
@@ -17,7 +18,7 @@ export function extractQuizItems(
 ): ExerciseItem[] {
   if (!html.includes("multiple-choice-question")) return [];
 
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  const doc = parseHtmlDocument(html);
   const items: ExerciseItem[] = [];
 
   for (const [index, question] of doc
@@ -60,6 +61,27 @@ export function extractQuizItems(
   }
 
   return items;
+}
+
+/**
+ * Remove the source quiz markup from a page once its questions have been extracted.
+ *
+ * Two reasons. The published markup carries the answer key inline — the correct choice
+ * holds an icon whose ligature text reads "check" — so leaving it in the prose gives the
+ * answer away. And its radio buttons are inert here, so keeping them would show every
+ * question twice, once dead and once playable.
+ */
+export function stripQuizMarkup(html: string): string {
+  if (!html.includes("multiple-choice-question")) return html;
+
+  const doc = parseHtmlDocument(html);
+  for (const node of doc.querySelectorAll(
+    "div.multiple-choice-question, div.multiple-choice-div",
+  )) {
+    node.remove();
+  }
+
+  return doc.body?.innerHTML ?? html;
 }
 
 /** A choice block, or the choice blocks wrapped inside one. */

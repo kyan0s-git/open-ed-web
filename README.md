@@ -9,16 +9,22 @@ can export, back up, or keep in a synced folder — there is no server and no da
 
 ## Status
 
-Early. The importer and content model are in place; the reader and mastery layers are next.
+Working end to end: import an archive, read the course, rate what you have read, and
+review what is due. Search, PDF text extraction and offline install are still to come.
 
 ## Development
 
 ```
 npm install
-npm run fixtures   # build the synthetic course archives used by tests
-npm run test
 npm run dev
+npm test                      # unit tests (fixtures are generated automatically)
+npm run verify                # typecheck, build, size budget, unit tests
+CHROMIUM_PATH=/path/to/chrome npm run e2e   # browser tests
 ```
+
+The initial payload has a 150 KB gzipped budget, enforced by `npm run size` in CI. Nearly
+everything is lazily loaded: the archive reader, the content database, the scheduler and
+the HTML parser all stay out of the first load.
 
 ## How an OCW archive is read
 

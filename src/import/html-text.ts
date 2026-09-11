@@ -4,6 +4,7 @@
  * The search index and page outline are built once at import time so the reader
  * never re-parses HTML at query time.
  */
+import { parseHtmlDocument } from "./dom";
 
 /** Elements that imply a word break, so text either side is not run together. */
 const BLOCK_LEVEL =
@@ -11,14 +12,14 @@ const BLOCK_LEVEL =
 
 export function htmlToText(html: string): string {
   if (!html.trim()) return "";
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  const doc = parseHtmlDocument(html);
   for (const el of doc.querySelectorAll("script, style")) el.remove();
 
   // textContent runs adjacent blocks together ("IntroductionWidgets"), which would
   // index as one unsearchable token. Separate them first.
   for (const el of doc.querySelectorAll(BLOCK_LEVEL)) el.after(doc.createTextNode(" "));
 
-  return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim();
+  return ((doc.body ?? doc.documentElement)?.textContent ?? "").replace(/\s+/g, " ").trim();
 }
 
 export interface Heading {
@@ -28,7 +29,7 @@ export interface Heading {
 
 export function extractHeadings(html: string): Heading[] {
   if (!html.trim()) return [];
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  const doc = parseHtmlDocument(html);
 
   return [...doc.querySelectorAll("h1, h2, h3, h4")]
     .map((el) => ({

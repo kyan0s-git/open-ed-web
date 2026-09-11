@@ -125,3 +125,34 @@ describe("parseOcwHugoJson", () => {
     expect(bundle.warnings).toEqual([]);
   });
 });
+
+describe("quiz source markup", () => {
+  it("is removed from the page once its questions are extracted", async () => {
+    const archive = await open("ocw-modern.zip");
+    const bundle = await parseOcwHugoJson(archive, detectFormat(archive), {
+      courseId: "test-course",
+      sourceHash: "hash",
+    });
+
+    const quizPage = bundle.pages.find((page) => page.uid === uids.quiz);
+
+    // The answer key travels in the markup, so leaving it in would reveal the answer.
+    expect(quizPage?.html).not.toContain("multiple-choice");
+    expect(quizPage?.html).not.toContain("correctness-icon-correct");
+    expect(quizPage?.text).not.toContain("A unit of widgetry");
+    // The question itself survives as a playable exercise.
+    expect(bundle.exercises[0]?.choices.some((choice) => choice.correct)).toBe(true);
+  });
+
+  it("leaves pages without quizzes untouched", async () => {
+    const archive = await open("ocw-modern.zip");
+    const bundle = await parseOcwHugoJson(archive, detectFormat(archive), {
+      courseId: "test-course",
+      sourceHash: "hash",
+    });
+
+    expect(bundle.pages.find((page) => page.uid === uids.lecture1)?.html).toContain(
+      "Widgets, broadly.",
+    );
+  });
+});

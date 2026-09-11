@@ -1,4 +1,4 @@
-import { readFileText, writeFileAtomic } from "./opfs";
+import { readFileText, renameFile, writeFileAtomic } from "./opfs";
 import {
   emptyProgress,
   mergeProgress,
@@ -50,8 +50,14 @@ export class ProgressStore {
       try {
         this.#doc = parseProgress(raw);
       } catch (error) {
-        // A corrupt file must not cost the user everything; keep it and start clean.
-        this.#lastError = error as Error;
+        // Starting clean would overwrite the unreadable file on the next save and
+        // destroy whatever it held. Set it aside under a dated name first, so the
+        // user still has it and can be told where it went.
+        const kept = `progress.unreadable-${Date.now()}.json`;
+        await renameFile(FILE_NAME, kept).catch(() => {});
+        this.#lastError = new Error(
+          `${(error as Error).message} The previous file was kept as ${kept}.`,
+        );
         this.#doc = emptyProgress();
       }
     }
@@ -64,12 +70,29 @@ export class ProgressStore {
     return () => this.#listeners.delete(listener);
   }
 
-  /** Apply a change and schedule a save. */
-  update(mutate: (draft: ProgressDoc) => ProgressDoc): void {
+  /**
+   * Apply a change and save it.
+   *
+   * Incidental updates are debounced, but anything the learner would be upset to lose —
+   * a finished review, a page marked done — passes `immediate` and is written at once.
+   * A debounce is the wrong place for state that took effort to produce.
+   */
+  update(
+    mutate: (draft: ProgressDoc) => ProgressDoc,
+    options: { immediate?: boolean } = {},
+  ): Promise<void> {
     this.#doc = mutate(this.#doc);
     this.#doc.updatedAt = new Date().toISOString();
     this.#emit();
-    this.#scheduleFlush();
+
+    if (!options.immediate) {
+      this.#scheduleFlush();
+      return Promise.resolve();
+    }
+
+    // Returned so callers can wait for the write to land before telling the learner
+    // their work is saved.
+    return this.flush();
   }
 
   /** Merge an imported file into the current one, keeping the newer of each record. */
@@ -90,12 +113,24 @@ export class ProgressStore {
     this.#timer = setTimeout(() => void this.flush(), FLUSH_DELAY_MS);
   }
 
+  /**
+   * Writes are serialized through this chain. Several saves can be in flight at once —
+   * finishing a review writes the skill, the attempt and the page status together — and
+   * letting them interleave on disk corrupts the file.
+   */
+  #writing: Promise<void> = Promise.resolve();
+
   async flush(): Promise<void> {
     if (this.#timer) {
       clearTimeout(this.#timer);
       this.#timer = null;
     }
 
+    this.#writing = this.#writing.then(() => this.#write());
+    return this.#writing;
+  }
+
+  async #write(): Promise<void> {
     const contents = this.toJSON();
     try {
       await writeFileAtomic(FILE_NAME, contents);
@@ -129,6 +164,19 @@ async function writeToHandle(handle: FileSystemFileHandle, contents: string): Pr
 }
 
 export const progressStore = new ProgressStore();
+
+/**
+ * A debounced save is lost if the page goes away before it fires — closing the tab
+ * moments after answering a review would silently discard it. Flush whenever the page
+ * is hidden, which covers reloads, navigation and tab close.
+ */
+if (typeof document !== "undefined") {
+  const flushNow = () => void progressStore.flush();
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushNow();
+  });
+  window.addEventListener("pagehide", flushNow);
+}
 
 /** Offer the document as a download — the fallback everywhere without a file picker. */
 export function downloadProgress(doc: ProgressDoc, filename = FILE_NAME): void {
