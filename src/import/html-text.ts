@@ -38,3 +38,42 @@ export function extractHeadings(html: string): Heading[] {
     }))
     .filter((h) => h.text.length > 0);
 }
+
+export interface PageLinks {
+  /** Canonical site paths this page links to, in document order, without repeats. */
+  targets: string[];
+  /** Share of the page's text that is link text — near 1 for an index of links. */
+  linkTextRatio: number;
+  /** Characters of text that are not inside a link. */
+  proseLength: number;
+}
+
+/** Every in-course link on a page, resolved from where the page lives. */
+export function extractLinks(
+  html: string,
+  pageDir: string,
+  resolve: (href: string, pageDir: string) => string | null,
+): PageLinks {
+  if (!html.trim()) return { targets: [], linkTextRatio: 0, proseLength: 0 };
+
+  const doc = parseHtmlDocument(html);
+  const targets: string[] = [];
+  const seen = new Set<string>();
+  let linkText = 0;
+
+  for (const anchor of doc.querySelectorAll("a[href]")) {
+    linkText += (anchor.textContent ?? "").replace(/\s+/g, "").length;
+    const target = resolve(anchor.getAttribute("href") ?? "", pageDir);
+    if (target !== null && !seen.has(target)) {
+      seen.add(target);
+      targets.push(target);
+    }
+  }
+
+  const total = ((doc.body ?? doc.documentElement)?.textContent ?? "").replace(/\s+/g, "").length;
+  return {
+    targets,
+    linkTextRatio: total === 0 ? 0 : linkText / total,
+    proseLength: Math.max(0, total - linkText),
+  };
+}

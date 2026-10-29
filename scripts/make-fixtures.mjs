@@ -31,6 +31,9 @@ const uid = {
   notesPdf: "55555555-5555-5555-5555-555555555555",
   video1: "66666666-6666-6666-6666-666666666666",
   quiz: "77777777-7777-7777-7777-777777777777",
+  videoDuplicate: "88888888-8888-8888-8888-888888888888",
+  captionSrt: "99999999-9999-9999-9999-999999999999",
+  transcript: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
 };
 
 const navItem = (id, name, href, children = "") => `
@@ -77,6 +80,8 @@ const courseData = {
   ],
   site_uid: "00000000-0000-0000-0000-000000000000",
   site_short_id: "1.001-fall-2024",
+  site_url_path: "courses/1-001-foundations-of-widgetry-fall-2024",
+  image_src: "./static_resources/cover.jpg",
   license: "https://creativecommons.org/licenses/by-nc-sa/4.0/",
 };
 
@@ -99,67 +104,120 @@ const quizHtml = `
   <label><input type="radio" name="q2" class="multiple-choice-radio">Maybe</label>
 </div>`;
 
+const SLUG = "/courses/1-001-foundations-of-widgetry-fall-2024";
+
+// Mirrors the real archive (8.04, Spring 2016): resources carry no parent_uid and are
+// reached only through links on a page, written relative to that page.
 const pages = {
   "pages/syllabus": {
     uid: uid.syllabus,
+    content_type: "page",
     title: "Syllabus",
     description: "Course syllabus",
     learning_resource_types: [],
-    content: "<h2>Overview</h2><p>Meets twice weekly. See the <a href='/courses/1-001-foundations-of-widgetry-fall-2024/pages/lectures/lecture-1/'>first lecture</a>.</p>",
+    content:
+      "<h2>Overview</h2><p>Meets twice weekly. Start with the <a href='../../pages/lectures/lecture-1/index.html'>first lecture</a>.</p>",
   },
   "pages/lectures": {
     uid: uid.lectures,
+    content_type: "page",
     title: "Lecture Notes",
-    content_type: "course-section",
-    resources: { content: [uid.lecture1, uid.lecture2], website: "1-001" },
-    content: "<p>All lecture notes.</p>",
+    learning_resource_types: ["Lecture Notes"],
+    // An index of links, like OCW's real lecture-notes pages: not itself a skill.
+    content:
+      "<table><tr><td>1</td><td><a href='../../resources/lecture-1-notes/index.html'>Lecture 1 Notes (PDF)</a></td></tr></table>",
   },
   "pages/lectures/lecture-1": {
     uid: uid.lecture1,
     parent_uid: uid.lectures,
+    content_type: "page",
     title: "1. Introduction",
     learning_resource_types: ["Lecture Notes", "Lecture Videos"],
-    content: "<h2>Introduction</h2><p>Widgets, broadly.</p><h3>Reading</h3><p>Chapter 1.</p>",
+    content:
+      "<h2>Introduction</h2><p>Widgets, broadly, are the smallest units of widgetry studied in this course.</p>" +
+      "<h3>Reading</h3><p>Chapter 1, with particular attention to the conservation law \\(W = w_1 + w_2\\) and</p>" +
+      "<p>$$\\int_0^1 w(t)\\,dt = 1$$</p>" +
+      "<p><a href='../../../resources/lecture-1-notes/index.html'>Notes (PDF)</a> · " +
+      "<a href='../../../resources/lecture-1-video/index.html'>Video</a></p>",
   },
   "pages/lectures/lecture-2": {
     uid: uid.lecture2,
     parent_uid: uid.lectures,
+    content_type: "page",
     title: "2. Widget Algebra",
     learning_resource_types: ["Lecture Notes"],
-    content: "<h2>Widget Algebra</h2><p>Composition of widgets.</p>",
+    content: "<h2>Widget Algebra</h2><p>Composition of widgets, and why it is associative but not commutative.</p>",
   },
   "pages/self-check": {
     uid: uid.quiz,
+    content_type: "page",
     title: "Self-Check",
     content: quizHtml,
   },
   "resources/lecture-1-notes": {
     uid: uid.notesPdf,
-    parent_uid: uid.lecture1,
+    content_type: "resource",
     title: "Lecture 1 Notes",
     resourcetype: "Document",
-    file: "/courses/1-001-foundations-of-widgetry-fall-2024/static_resources/lec1.pdf",
+    file: `${SLUG}/0a1b_lec1.pdf`,
     file_type: "application/pdf",
     file_size: 24,
+    learning_resource_types: ["Lecture Notes"],
     language: "en",
-    content: "",
+    content: "<p>Notes for lecture 1.</p>",
   },
   "resources/lecture-1-video": {
     uid: uid.video1,
-    parent_uid: uid.lecture1,
+    content_type: "resource",
     title: "Lecture 1 Video",
     resourcetype: "Video",
-    file: "",
+    file: null,
+    // Real archives write this as a string for videos.
+    file_size: "41937317",
+    learning_resource_types: ["Lecture Videos"],
     video_metadata: { youtube_id: "dQw4w9WgXcQ", youtube_description: "Lecture 1" },
+    video_files: {
+      archive_url: "https://archive.org/download/example/lec01.mp4",
+      video_captions_file: `${SLUG}/0c1d_dQw4w9WgXcQ.vtt`,
+      video_transcript_file: `${SLUG}/0e1f_dQw4w9WgXcQ.pdf`,
+    },
+    content: "",
+  },
+  // The same video published a second time under another slug, linked from nowhere.
+  "resources/lecture-1-video-2": {
+    uid: uid.videoDuplicate,
+    content_type: "resource",
+    title: "Lecture 1 Video",
+    resourcetype: "Video",
+    file: null,
+    learning_resource_types: ["Lecture Videos"],
+    video_metadata: { youtube_id: "dQw4w9WgXcQ" },
+    content: "",
+  },
+  // Sidecars: a transcript the video points at, and SubRip captions nothing points at.
+  "resources/dqw4w9wgxcq": {
+    uid: uid.transcript,
+    content_type: "resource",
+    title: "Lecture 1 Transcript",
+    resourcetype: "Document",
+    file: `${SLUG}/0e1f_dQw4w9WgXcQ.pdf`,
+    file_type: "application/pdf",
+    content: "",
+  },
+  "resources/dqw4w9wgxcq-2": {
+    uid: uid.captionSrt,
+    content_type: "resource",
+    title: "3play caption file",
+    resourcetype: "Other",
+    file: `${SLUG}/0g1h_dQw4w9WgXcQ.srt`,
+    file_type: "application/x-subrip",
     content: "",
   },
 };
 
+// The real content map points at each record's data.json, not its page.
 const contentMap = Object.fromEntries(
-  Object.entries(pages).map(([path, data]) => [
-    data.uid,
-    `/courses/1-001-foundations-of-widgetry-fall-2024/${path}/`,
-  ]),
+  Object.entries(pages).map(([path, data]) => [data.uid, `/${path}/data.json`]),
 );
 
 /** Modern archive: rendered HTML plus the coursedata/contentmap JSON outputs. */
@@ -168,7 +226,13 @@ function modernArchive() {
     "index.html": strToU8(indexHtml),
     "data.json": strToU8(JSON.stringify(courseData, null, 2)),
     "content_map.json": strToU8(JSON.stringify(contentMap, null, 2)),
-    "static_resources/lec1.pdf": strToU8("%PDF-1.4 fixture\n"),
+    "static_resources/0a1b_lec1.pdf": strToU8("%PDF-1.4 fixture\n"),
+    "static_resources/0c1d_dQw4w9WgXcQ.vtt": strToU8("WEBVTT\n"),
+    "static_resources/0e1f_dQw4w9WgXcQ.pdf": strToU8("%PDF-1.4 transcript\n"),
+    "static_resources/0g1h_dQw4w9WgXcQ.srt": strToU8("1\n"),
+    "static_resources/cover.jpg": strToU8("jpg"),
+    // Section listings publish a data.json with no uid; they are not content.
+    "pages/data.json": strToU8(JSON.stringify({ content: "", draft: false })),
   };
   for (const [path, data] of Object.entries(pages)) {
     files[`${path}/data.json`] = strToU8(JSON.stringify(data, null, 2));
@@ -195,6 +259,12 @@ function legacyArchive() {
   };
 }
 
+function stripRoot(files) {
+  return Object.fromEntries(
+    Object.entries(files).map(([p, d]) => [p.slice(p.indexOf("/") + 1), d]),
+  );
+}
+
 function withRoot(prefix, files) {
   return Object.fromEntries(Object.entries(files).map(([p, d]) => [prefix + p, d]));
 }
@@ -202,6 +272,8 @@ function withRoot(prefix, files) {
 mkdirSync(out, { recursive: true });
 for (const [name, files] of [
   ["ocw-modern.zip", modernArchive()],
+  // Real downloads put the site at the archive root, with no wrapping folder.
+  ["ocw-modern-flat.zip", stripRoot(modernArchive())],
   ["ocw-html-only.zip", htmlOnlyArchive()],
   ["ocw-legacy.zip", legacyArchive()],
 ]) {

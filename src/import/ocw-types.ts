@@ -23,6 +23,9 @@ export interface OcwCourseData {
   department_numbers?: string[];
   learning_resource_types?: string[];
   license?: string;
+  /** Relative path to the course image, e.g. "./static_resources/…jpg". */
+  image_src?: string;
+  site_url_path?: string;
 }
 
 export interface OcwVideoMetadata {
@@ -46,15 +49,27 @@ export interface OcwPageData {
 
   /** Present on resources only. */
   resourcetype?: string;
-  file?: string;
+  /** Null for videos, which ship no file. */
+  file?: string | null;
   file_type?: string;
-  file_size?: number;
+  /** A number in some records and a numeric string in others. */
+  file_size?: number | string | null;
   video_metadata?: OcwVideoMetadata;
-  video_files?: Record<string, unknown>;
+  video_files?: OcwVideoFiles;
   /** Resource lists and video galleries reference other content by uid. */
   resources?: { content?: string[]; website?: string };
   videos?: { content?: string[]; website?: string };
 }
 
-/** content_map.json: content uid -> published path. */
+export interface OcwVideoFiles {
+  archive_url?: string;
+  video_captions_file?: string;
+  video_transcript_file?: string;
+  video_thumbnail_file?: string;
+}
+
+/**
+ * content_map.json: content uid -> where that content's data.json was published,
+ * e.g. "/resources/lecture-1/data.json". Strip the filename for the page's path.
+ */
 export type OcwContentMap = Record<string, string>;

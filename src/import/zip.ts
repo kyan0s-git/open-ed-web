@@ -52,7 +52,7 @@ export class Archive {
   }
 
   static async open(source: Blob): Promise<Archive> {
-    const reader = new ZipReader(new BlobReader(source));
+    const reader = new ZipReader(new BlobReader(source), { decodeText: decodeName });
     return new Archive(reader, await reader.getEntries());
   }
 
@@ -112,6 +112,24 @@ export class Archive {
     const entry = this.#entries.get(path);
     if (!entry) throw new Error(`No such entry in archive: ${path}`);
     return (await entry.getData(writer as never)) as T;
+  }
+}
+
+const strictUtf8 = new TextDecoder("utf-8", { fatal: true });
+
+/**
+ * Decode an entry name that is not flagged as UTF-8.
+ *
+ * The zip format says unflagged names are Code Page 437, but OCW archives store UTF-8
+ * without setting the flag, so "schrödingers" would read as "schr├╢dingers" and stop
+ * matching the paths in content_map.json. Try strict UTF-8 first: a real CP437 name is
+ * almost never valid UTF-8, so it still falls through to zip.js's own decoding.
+ */
+function decodeName(value: Uint8Array): string | undefined {
+  try {
+    return strictUtf8.decode(value);
+  } catch {
+    return undefined;
   }
 }
 

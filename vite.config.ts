@@ -21,6 +21,18 @@ export default defineConfig({
     // The importer parses course HTML with DOMParser, which the browser provides
     // for free. happy-dom supplies it in tests.
     environment: "happy-dom",
+    // A browser's DOMParser produces inert documents; happy-dom's would otherwise fetch
+    // the stylesheets and scripts a course page references. Match the browser.
+    environmentOptions: {
+      happyDOM: {
+        settings: {
+          disableCSSFileLoading: true,
+          disableJavaScriptFileLoading: true,
+          disableJavaScriptEvaluation: true,
+          disableIframePageLoading: true,
+        },
+      },
+    },
     include: ["src/**/*.test.ts"],
   },
 });

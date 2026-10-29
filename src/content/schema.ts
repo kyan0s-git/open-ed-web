@@ -34,6 +34,15 @@ export const Course = z.object({
   descriptionHtml: z.string().default(""),
   /** Rights statement from the archive. OCW is CC BY-NC-SA; the reader must show it. */
   license: z.string().optional(),
+  /** Course thumbnail inside the archive, when it has one. */
+  imagePath: z.string().nullable().default(null),
+  /** Where the course was published, e.g. "courses/8-04-quantum-physics-i-spring-2016". */
+  sitePath: z.string().optional(),
+  /**
+   * The order a learner works through the course: each page in sidebar order, followed
+   * by the materials it links to. Previous/next navigation walks this.
+   */
+  sequence: z.array(z.string()).default([]),
   importedAt: z.string(),
 });
 export type Course = z.infer<typeof Course>;
@@ -68,11 +77,15 @@ export const Resource = z.object({
   /** Path of the file inside the archive. Empty for videos, which ship no file. */
   zipPath: z.string().nullable(),
   mime: z.string().optional(),
+  /** Archives write this as a number or a numeric string; it is normalized on import. */
   sizeBytes: z.number().optional(),
+  descriptionHtml: z.string().default(""),
   /** Videos are excluded from OCW archives, but their YouTube ID travels in metadata. */
   youtubeId: z.string().optional(),
   transcriptPath: z.string().nullable().default(null),
   captionsPath: z.string().nullable().default(null),
+  /** A downloadable copy of a lecture video, when the course links one. */
+  archiveUrl: z.string().optional(),
   language: z.string().optional(),
 });
 export type Resource = z.infer<typeof Resource>;
@@ -97,8 +110,10 @@ export const Skill = z.object({
   id: z.string(),
   courseId: z.string(),
   title: z.string(),
-  /** Node this skill was derived from — the lecture or session page. */
+  /** Node this skill was derived from — a lecture's notes, a video, or a content page. */
   nodeUid: z.string(),
+  /** Which kind of material it is, e.g. "Lecture Videos", for grouping on screen. */
+  kind: z.string().default(""),
   order: z.number(),
 });
 export type Skill = z.infer<typeof Skill>;
