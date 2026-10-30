@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Course } from "@/content/schema";
 import { deleteCourse, listCourses } from "@/storage/db";
+import { onCoursesChanged } from "@/storage/queries";
 import { deleteCourseArchive, estimateStorage } from "@/storage/opfs";
 import { releaseCourse } from "@/content/assets";
 import { downloadProgress, filePickerSupported, progressStore } from "@/storage/progress-store";
@@ -11,6 +12,7 @@ import { formatBytes } from "@/content/ResourceView";
 import { evictCourse } from "./useCourse";
 import { resetSearch } from "@/search/client";
 import { SyncSettings } from "@/sync/SyncSettings";
+import { ServerCopyActions } from "@/sync/CourseTransfer";
 
 const THEMES: { value: ThemePreference; label: string; icon: IconName }[] = [
   { value: "system", label: "System", icon: "system" },
@@ -30,7 +32,10 @@ export function SettingsPage() {
     void listCourses().then(setCourses);
     void estimateStorage().then(setStorage);
   };
-  useEffect(refresh, []);
+  useEffect(() => {
+    refresh();
+    return onCoursesChanged(refresh);
+  }, []);
 
   const importFile = async (file: File) => {
     try {
@@ -57,7 +62,7 @@ export function SettingsPage() {
   };
 
   const remove = async (course: Course) => {
-    if (!confirm(`Remove ${course.title}? Your progress for it is kept, so re-importing restores it.`)) return;
+    if (!confirm(`Remove ${course.title} from this device? Your progress for it is kept, so re-importing restores it.`)) return;
     evictCourse(course.id);
     await releaseCourse(course.id);
     await deleteCourse(course.id);
@@ -137,7 +142,7 @@ export function SettingsPage() {
         {storage && (
           <p className="muted" style={{ margin: 0 }}>
             Using {formatBytes(storage.usageBytes)} of about {formatBytes(storage.quotaBytes)} available on
-            this device.
+            this device. Each course is a copy of its .zip, so you can delete the original download.
           </p>
         )}
 
@@ -151,9 +156,12 @@ export function SettingsPage() {
                   <strong>{course.title}</strong>
                   <span className="muted"> · {course.courseNumber}</span>
                 </span>
-                <button className="btn btn--quiet" type="button" onClick={() => void remove(course)}>
-                  Remove
-                </button>
+                <span className="row" style={{ gap: "0.5rem" }}>
+                  <ServerCopyActions course={course} />
+                  <button className="btn btn--quiet" type="button" onClick={() => void remove(course)}>
+                    Remove from device
+                  </button>
+                </span>
               </li>
             ))}
           </ul>

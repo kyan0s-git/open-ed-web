@@ -1,7 +1,15 @@
 import { canonicalProgress, parseProgress, serializeProgress, type ProgressDoc } from "@/storage/progress";
 import { progressStore, type ProgressStore } from "@/storage/progress-store";
 import { deriveKeys, fromBase64Url, newSecret, open, seal, toBase64Url, toHex, type VaultKeys } from "./crypto";
-import { buildSyncLink, normalizeServer, readSyncConfig, writeSyncConfig, type SyncConfig } from "./config";
+import {
+  buildSyncLink,
+  DEFAULT_COURSE_SETTINGS,
+  normalizeServer,
+  readSyncConfig,
+  writeSyncConfig,
+  type CourseSettings,
+  type SyncConfig,
+} from "./config";
 
 /**
  * Keeps progress.json the same on every device that shares a sync link.
@@ -34,6 +42,11 @@ const FOCUS_MIN_GAP_MS = 30 * 1000;
 const MAX_ROUNDS = 5;
 
 export class SyncAuthError extends Error {}
+
+export interface CourseStorage {
+  chunkBytes: number;
+  quotaBytes: number;
+}
 
 interface EngineDeps {
   store?: ProgressStore;
@@ -78,6 +91,41 @@ export class SyncEngine {
 
   get enabled(): boolean {
     return this.#config !== null;
+  }
+
+  /** This device's choices for storing courses on the server. */
+  get courseSettings(): CourseSettings {
+    return { ...DEFAULT_COURSE_SETTINGS, ...this.#config?.courses };
+  }
+
+  setCourseSettings(change: Partial<CourseSettings>): void {
+    if (!this.#config) return;
+    this.#config = { ...this.#config, courses: { ...this.courseSettings, ...change } };
+    this.#save(this.#config);
+    this.#setStatus({ ...this.#status });
+  }
+
+  /** The server and keys, for transferring course chunks; null when sync is off. */
+  async access(): Promise<{ server: string; keys: VaultKeys; fetch: typeof fetch } | null> {
+    if (!this.#config) return null;
+    return { server: this.#config.server, keys: await this.#vaultKeys(), fetch: this.#fetch };
+  }
+
+  #capabilities: { server: string; value: Promise<CourseStorage | null> } | null = null;
+
+  /** What the server offers for course storage, or null if it stores progress only. */
+  courseStorage(): Promise<CourseStorage | null> {
+    const server = this.#config?.server;
+    if (!server) return Promise.resolve(null);
+    if (this.#capabilities?.server !== server) {
+      const value = this.#fetch(`${server}/api/v1/health`, { cache: "no-store" })
+        .then((response) => response.json() as Promise<{ courses?: CourseStorage | null }>)
+        .then((body) => body.courses ?? null);
+      // A failed check is retried next time rather than cached.
+      value.catch(() => (this.#capabilities = null));
+      this.#capabilities = { server, value };
+    }
+    return this.#capabilities.value;
   }
 
   /** The link to open on another device to join this vault. */

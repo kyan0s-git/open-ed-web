@@ -3,6 +3,9 @@
 #   docker build -t open-ed-web .
 #   docker run -p 8787:8787 -v open-ed-web-data:/data open-ed-web
 #
+# Add -e COURSE_STORAGE=on to also store course archives, so devices can download
+# courses from the server instead of importing the .zip on each one.
+#
 # Put it behind HTTPS (see docs/self-hosting.md); browsers only allow the storage the app
 # needs on https:// or localhost.
 

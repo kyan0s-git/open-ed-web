@@ -18,6 +18,7 @@ function doc(course: Partial<CourseProgress> & { updatedAt: string }): ProgressD
     schema: PROGRESS_SCHEMA,
     updatedAt: course.updatedAt,
     activity: {},
+    library: {},
     courses: {
       algebra: {
         title: "Algebra",
@@ -133,5 +134,5 @@ describe("mergeProgress", () => {
 
 /** Re-wrap a merged course so it can be fed back in, to check merge is idempotent. */
 function merged3(course: CourseProgress): ProgressDoc {
-  return { schema: PROGRESS_SCHEMA, updatedAt: course.updatedAt, courses: { algebra: course }, activity: {} };
+  return { schema: PROGRESS_SCHEMA, updatedAt: course.updatedAt, courses: { algebra: course }, activity: {}, library: {} };
 }

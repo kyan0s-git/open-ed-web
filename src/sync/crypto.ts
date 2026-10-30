@@ -6,7 +6,8 @@
  *
  *  - the vault id, which addresses the vault on the server;
  *  - the access token, which the server checks (it stores only a hash of it);
- *  - the AES-256-GCM key, which never leaves the device.
+ *  - the AES-256-GCM key, which never leaves the device;
+ *  - for stored courses, a second AES key and an HMAC key that names each chunk.
  *
  * The server therefore holds ciphertext it cannot read, under an id that reveals
  * nothing, and cannot link a vault to a person. Losing the secret loses access to the
@@ -26,6 +27,10 @@ export interface VaultKeys {
   vaultId: string;
   token: string;
   key: CryptoKey;
+  /** Encrypts course chunks. */
+  chunkKey: CryptoKey;
+  /** Names course chunks by a keyed hash of their contents. */
+  chunkIdKey: CryptoKey;
 }
 
 export function newSecret(): Uint8Array {
@@ -45,15 +50,16 @@ export async function deriveKeys(secret: Uint8Array): Promise<VaultKeys> {
     info: new TextEncoder().encode(info),
   });
 
-  const [id, token, key] = await Promise.all([
+  const aes = (info: string) =>
+    crypto.subtle.deriveKey(params(info), base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  const [id, token, key, chunkKey, chunkIdKey] = await Promise.all([
     crypto.subtle.deriveBits(params("vault-id"), base, 128),
     crypto.subtle.deriveBits(params("access-token"), base, 256),
-    crypto.subtle.deriveKey(params("encryption-key"), base, { name: "AES-GCM", length: 256 }, false, [
-      "encrypt",
-      "decrypt",
-    ]),
+    aes("encryption-key"),
+    aes("chunk-key"),
+    crypto.subtle.deriveKey(params("chunk-id"), base, { name: "HMAC", hash: "SHA-256", length: 256 }, false, ["sign"]),
   ]);
-  return { vaultId: toHex(new Uint8Array(id)), token: toHex(new Uint8Array(token)), key };
+  return { vaultId: toHex(new Uint8Array(id)), token: toHex(new Uint8Array(token)), key, chunkKey, chunkIdKey };
 }
 
 /** Compress (where the platform can) and encrypt. The vault id is bound in as associated data. */
@@ -101,6 +107,61 @@ export async function open(keys: VaultKeys, sealed: Uint8Array): Promise<string>
 
   const bytes = (sealed[4]! & FLAG_GZIP) !== 0 ? await gunzip(new Uint8Array(plain)) : new Uint8Array(plain);
   return new TextDecoder().decode(bytes);
+}
+
+const CHUNK_FORMAT = 1;
+
+/**
+ * Course chunks are encrypted deterministically: the id is an HMAC of the plaintext and
+ * the IV is taken from it, so the same chunk always encrypts to the same bytes under the
+ * same name. That is what lets a device skip chunks the server already has, from this or
+ * any other device in the vault. It reveals only that two chunks are identical, and an
+ * IV can only repeat for identical plaintext.
+ */
+export async function chunkId(keys: VaultKeys, plain: Uint8Array): Promise<string> {
+  const mac = await crypto.subtle.sign("HMAC", keys.chunkIdKey, plain as Uint8Array<ArrayBuffer>);
+  return toHex(new Uint8Array(mac));
+}
+
+export async function sealChunk(keys: VaultKeys, id: string, plain: Uint8Array): Promise<Uint8Array> {
+  const cipher = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: chunkIv(id), additionalData: chunkAad(keys, id) },
+    keys.chunkKey,
+    plain as Uint8Array<ArrayBuffer>,
+  );
+  const out = new Uint8Array(1 + cipher.byteLength);
+  out[0] = CHUNK_FORMAT;
+  out.set(new Uint8Array(cipher), 1);
+  return out;
+}
+
+/** Decrypt a chunk and check it is the one that was asked for. */
+export async function openChunk(keys: VaultKeys, id: string, sealed: Uint8Array): Promise<Uint8Array> {
+  if (sealed[0] !== CHUNK_FORMAT) throw new SealError("A stored course chunk is in a format this app does not understand.");
+  let plain: Uint8Array;
+  try {
+    plain = new Uint8Array(
+      await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: chunkIv(id), additionalData: chunkAad(keys, id) },
+        keys.chunkKey,
+        sealed.slice(1),
+      ),
+    );
+  } catch {
+    throw new SealError("A stored course chunk is damaged or belongs to another vault.");
+  }
+  if ((await chunkId(keys, plain)) !== id) throw new SealError("A stored course chunk does not match its name.");
+  return plain;
+}
+
+function chunkIv(id: string): Uint8Array<ArrayBuffer> {
+  const iv = new Uint8Array(IV_BYTES);
+  for (let i = 0; i < IV_BYTES; i++) iv[i] = parseInt(id.slice(i * 2, i * 2 + 2), 16);
+  return iv;
+}
+
+function chunkAad(keys: VaultKeys, id: string): Uint8Array<ArrayBuffer> {
+  return new TextEncoder().encode(`${keys.vaultId}/${id}`);
 }
 
 function associatedData(header: Uint8Array, vaultId: string): Uint8Array<ArrayBuffer> {

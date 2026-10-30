@@ -20,7 +20,27 @@ export interface SyncConfig {
   etag?: string | null;
   fingerprint?: string | null;
   lastSyncedAt?: string | null;
+  /** Storing course archives on the server. Off unless turned on, per device. */
+  courses?: CourseSettings;
 }
+
+export interface CourseSettings {
+  /** Use the server's course storage at all. */
+  enabled: boolean;
+  /** Upload each course after importing it here. */
+  autoUpload: boolean;
+  /** Download courses other devices stored, when they appear. */
+  autoDownload: boolean;
+  /** Skip automatic downloads larger than this, in megabytes; 0 for no limit. */
+  autoDownloadMaxMB: number;
+}
+
+export const DEFAULT_COURSE_SETTINGS: CourseSettings = {
+  enabled: false,
+  autoUpload: true,
+  autoDownload: false,
+  autoDownloadMaxMB: 250,
+};
 
 export function readSyncConfig(): SyncConfig | null {
   try {

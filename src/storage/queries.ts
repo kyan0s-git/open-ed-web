@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Course, Skill } from "@/content/schema";
 import { db } from "./db";
-import { assetUrl } from "@/content/assets";
-import { guessMime } from "@/content/maps";
 
 export interface CourseSummary {
   course: Course;
@@ -29,34 +27,59 @@ export async function loadCourseSummaries(): Promise<CourseSummary[]> {
   }));
 }
 
+const courseListeners = new Set<() => void>();
+
+/** Tell open lists that a course was added or removed somewhere other than their screen. */
+export function coursesChanged(): void {
+  for (const listener of courseListeners) listener();
+}
+
+/** Re-run `load` whenever coursesChanged() is called. */
+export function onCoursesChanged(load: () => void): () => void {
+  courseListeners.add(load);
+  return () => courseListeners.delete(load);
+}
+
 export function useCourseSummaries(): CourseSummary[] | null {
   const [summaries, setSummaries] = useState<CourseSummary[] | null>(null);
   useEffect(() => {
     let live = true;
-    void loadCourseSummaries().then((rows) => live && setSummaries(rows));
+    const load = () => void loadCourseSummaries().then((rows) => live && setSummaries(rows));
+    load();
+    const unsubscribe = onCoursesChanged(load);
     return () => {
       live = false;
+      unsubscribe();
     };
   }, []);
   return summaries;
 }
 
-/** The course's cover image from inside its archive, as a blob URL. */
+/**
+ * The course's cover as a blob URL: its own image, or a rendered first page of its
+ * notes when it has none that decodes (see content/thumbnails.ts). Null while loading
+ * and when there is nothing to show, in which case cards draw a typographic tile.
+ */
 export function useCoverUrl(course: Course | undefined): string | null {
   const [url, setUrl] = useState<string | null>(null);
-  const courseId = course?.id;
-  const imagePath = course?.imagePath;
 
   useEffect(() => {
-    if (!courseId || !imagePath) return;
+    if (!course) return;
     let live = true;
-    void assetUrl(courseId, imagePath, guessMime(imagePath) ?? "image/jpeg")
-      .then((next) => live && setUrl(next))
+    let created: string | null = null;
+    void import("@/content/thumbnails")
+      .then(({ courseCover }) => courseCover(course))
+      .then((image) => {
+        if (!live || !image) return;
+        created = URL.createObjectURL(image);
+        setUrl(created);
+      })
       .catch(() => {});
     return () => {
       live = false;
+      if (created) URL.revokeObjectURL(created);
     };
-  }, [courseId, imagePath]);
+  }, [course?.id, course?.imagePath]);
 
   return url;
 }

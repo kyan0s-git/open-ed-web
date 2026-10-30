@@ -73,6 +73,28 @@ export const DayActivity = z.object({
 });
 export type DayActivity = z.infer<typeof DayActivity>;
 
+/**
+ * A course archive stored on the sync server, so other devices can download it instead
+ * of importing the .zip again. Kept in the progress file because that is what sync
+ * already carries, encrypted: the server stores the chunks but never sees which courses
+ * they are. Removing a course from the server leaves a `removed` record rather than
+ * deleting the entry, so the removal reaches every device instead of being undone by
+ * the next merge.
+ */
+export const LibraryEntry = z.object({
+  title: z.string(),
+  courseNumber: z.string().default(""),
+  bytes: z.number().int().nonnegative(),
+  /** Plaintext bytes per chunk; the last one may be shorter. */
+  chunkBytes: z.number().int().positive(),
+  /** Chunk ids, in order. */
+  chunks: z.array(z.string()),
+  uploadedAt: z.string(),
+  removed: z.boolean().default(false),
+  updatedAt: z.string(),
+});
+export type LibraryEntry = z.infer<typeof LibraryEntry>;
+
 /** About a year of history; older days fall off so the file cannot grow without bound. */
 export const MAX_ACTIVITY_DAYS = 400;
 
@@ -85,11 +107,13 @@ export const ProgressDoc = z.object({
    * the default keeps older progress files valid without a migration.
    */
   activity: z.record(z.string(), DayActivity).default({}),
+  /** Courses stored on the sync server, by course id. Optional for the same reason. */
+  library: z.record(z.string(), LibraryEntry).default({}),
 });
 export type ProgressDoc = z.infer<typeof ProgressDoc>;
 
 export function emptyProgress(now = new Date()): ProgressDoc {
-  return { schema: PROGRESS_SCHEMA, updatedAt: now.toISOString(), courses: {}, activity: {} };
+  return { schema: PROGRESS_SCHEMA, updatedAt: now.toISOString(), courses: {}, activity: {}, library: {} };
 }
 
 /** Local calendar day, so "today" means the learner's today rather than UTC's. */
@@ -181,6 +205,7 @@ export function mergeProgress(base: ProgressDoc, incoming: ProgressDoc): Progres
     updatedAt: max(base.updatedAt, incoming.updatedAt),
     courses,
     activity: trimActivity(activity),
+    library: mergeByTimestamp(base.library, incoming.library),
   };
 }
 

@@ -8,6 +8,7 @@ import { collectDue, lastVisited, useCourseProgress, useProgress } from "@/maste
 import { courseMastery, type MasteryLevel } from "@/mastery/levels";
 import { Level, Meter } from "@/ui/Meter";
 import { Icon } from "@/ui/icons";
+import { CoverTile } from "@/ui/CourseCard";
 
 const PREVIEW_ROWS = 25;
 
@@ -93,11 +94,9 @@ function Overview({ loaded }: { loaded: LoadedCourse }) {
         </div>
 
         <div className="card card--pad stack" style={{ gap: "0.9rem" }}>
-          {cover && (
-            <div className="hero__cover">
-              <img src={cover} alt="" />
-            </div>
-          )}
+          <div className="hero__cover">
+            {cover ? <img src={cover} alt="" /> : <CoverTile number={course.courseNumber} title={course.title} />}
+          </div>
           <Meter label="Materials finished" value={finished} max={course.sequence.length} />
           <Meter label="Skills started" value={levels.length} max={skills.length} />
           <p className="muted" style={{ margin: 0, fontSize: "var(--step--1)" }}>

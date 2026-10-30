@@ -456,6 +456,8 @@ h2 {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* Rendered notes are portrait pages: show their title, not their middle. */
+  object-position: top;
   display: block;
 }
 
@@ -562,6 +564,8 @@ h2 {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* Rendered notes are portrait pages: show their title, not their middle. */
+  object-position: top;
   display: block;
 }
 
@@ -1744,4 +1748,128 @@ mark {
 .danger summary {
   cursor: pointer;
   color: var(--ink-muted);
+}
+
+/* Option groups */
+.options {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: var(--paper-raised);
+  display: grid;
+  gap: 0.9rem;
+}
+
+.options legend {
+  padding: 0 0.35rem;
+  font-weight: 600;
+  font-size: var(--step--1);
+  color: var(--ink-muted);
+}
+
+.options__more {
+  display: grid;
+  gap: 0.8rem;
+  padding-left: 1.75rem;
+}
+
+.check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+  align-items: start;
+  cursor: pointer;
+}
+
+.check input {
+  margin: 0.25rem 0 0;
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--clay);
+}
+
+.check span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.check small {
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+  line-height: 1.45;
+}
+
+.field--inline {
+  grid-template-columns: auto auto;
+  justify-content: start;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* Course transfers */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: var(--step--1);
+  background: var(--paper-sunken);
+  color: var(--ink-muted);
+}
+
+.pill--ok {
+  background: var(--teal-wash);
+  color: var(--teal-4);
+}
+
+.transfer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: var(--step--1);
+  color: var(--ink-muted);
+}
+
+.transfer__bar {
+  width: 7rem;
+}
+
+.transfer--error {
+  color: var(--warn);
+  flex-wrap: wrap;
+}
+
+/* Covers for courses that have none */
+.covertile {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--clay) 14%, transparent), transparent 60%),
+    var(--paper-sunken);
+}
+
+.covertile__number {
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--clay);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A video poster of our own, when YouTube's image cannot load */
+.video__poster {
+  display: grid;
+  place-items: end start;
+  width: 100%;
+  height: 100%;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(160deg, #2a2e34, #131518);
+  color: #e8eaed;
+  font-weight: 600;
+  font-size: var(--step-1);
+  text-align: left;
 }

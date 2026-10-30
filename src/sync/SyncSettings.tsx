@@ -1,8 +1,9 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Icon } from "@/ui/icons";
 import { isDesktopApp } from "@/desktop";
 import { defaultServer, parseSyncLink } from "./config";
-import { syncEngine } from "./engine";
+import { syncEngine, type CourseStorage } from "./engine";
+import { formatBytes } from "@/content/ResourceView";
 import { useSyncStatus } from "./useSync";
 
 const QrCode = lazy(() => import("./QrCode").then((m) => ({ default: m.QrCode })));
@@ -178,6 +179,8 @@ function Connected() {
         </div>
       )}
 
+      <CourseStorageSettings />
+
       <details className="danger">
         <summary>Stop syncing</summary>
         <div className="row" style={{ marginTop: "0.75rem" }}>
@@ -199,6 +202,128 @@ function Connected() {
         </p>
       )}
     </>
+  );
+}
+
+const DOWNLOAD_LIMITS = [
+  { value: 100, label: "Up to 100 MB" },
+  { value: 250, label: "Up to 250 MB" },
+  { value: 500, label: "Up to 500 MB" },
+  { value: 0, label: "Any size" },
+];
+
+/**
+ * Storing course archives on the sync server, so other devices can download a course
+ * instead of importing its .zip again. Off by default on every device, and offered only
+ * when the server has it turned on.
+ */
+function CourseStorageSettings() {
+  useSyncStatus(); // re-render when the settings change
+  const settings = syncEngine.courseSettings;
+  const [storage, setStorage] = useState<CourseStorage | null | undefined>(undefined);
+  const [usage, setUsage] = useState<{ usedBytes: number; quotaBytes: number } | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    syncEngine
+      .courseStorage()
+      .then((value) => live && setStorage(value))
+      .catch(() => live && setStorage(null));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!storage || !settings.enabled) return;
+    let live = true;
+    void import("./library").then(({ storageUsage }) => storageUsage()).then((value) => live && setUsage(value));
+    return () => {
+      live = false;
+    };
+  }, [storage, settings.enabled]);
+
+  if (storage === undefined) return null;
+
+  if (storage === null) {
+    return (
+      <p className="muted" style={{ margin: 0, fontSize: "var(--step--1)" }}>
+        This sync server stores progress only. Its operator can turn on course storage so devices can download
+        courses from it; see the self-hosting guide.
+      </p>
+    );
+  }
+
+  const set = (change: Partial<typeof settings>) => {
+    syncEngine.setCourseSettings(change);
+    if (change.enabled || change.autoDownload) {
+      void import("./library").then(({ startAutoDownload }) => startAutoDownload());
+    }
+  };
+
+  return (
+    <fieldset className="options">
+      <legend>Courses on the server</legend>
+      <label className="check">
+        <input type="checkbox" checked={settings.enabled} onChange={(event) => set({ enabled: event.target.checked })} />
+        <span>
+          <strong>Store courses on the sync server</strong>
+          <small>
+            Your other devices can then download a course instead of importing its .zip. Courses are encrypted
+            like your progress, and sent in {formatBytes(storage.chunkBytes)} pieces, so an interrupted upload
+            picks up where it stopped.
+          </small>
+        </span>
+      </label>
+
+      {settings.enabled && (
+        <div className="options__more">
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={settings.autoUpload}
+              onChange={(event) => set({ autoUpload: event.target.checked })}
+            />
+            <span>
+              <strong>Upload courses I import on this device</strong>
+              <small>Otherwise, upload each one from the list of stored courses below.</small>
+            </span>
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={settings.autoDownload}
+              onChange={(event) => set({ autoDownload: event.target.checked })}
+            />
+            <span>
+              <strong>Download courses my other devices store</strong>
+              <small>Otherwise, download them from the Courses page when you want them.</small>
+            </span>
+          </label>
+          {settings.autoDownload && (
+            <label className="field field--inline">
+              <span>Download automatically</span>
+              <select
+                className="select"
+                value={settings.autoDownloadMaxMB}
+                onChange={(event) => set({ autoDownloadMaxMB: Number(event.target.value) })}
+              >
+                {DOWNLOAD_LIMITS.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {usage && (
+            <p className="muted" style={{ margin: 0, fontSize: "var(--step--1)" }}>
+              Using {formatBytes(usage.usedBytes)} of {formatBytes(usage.quotaBytes)} on the server.
+            </p>
+          )}
+        </div>
+      )}
+    </fieldset>
   );
 }
 

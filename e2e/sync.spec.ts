@@ -51,3 +51,58 @@ test("a sync link with a bad secret explains itself", async ({ page }) => {
   await page.goto("/pair#k=short");
   await expect(page.getByRole("alert")).toContainText("not a complete sync link");
 });
+
+test("a course stored on the server downloads to a second device, only when turned on", async ({ browser }) => {
+  const laptop = await (await browser.newContext()).newPage();
+  const errors: string[] = [];
+  laptop.on("pageerror", (error) => errors.push(error.message));
+
+  // Turn on sync and course storage first, so the import uploads on its own.
+  await laptop.goto("/settings");
+  await laptop.getByRole("button", { name: "Turn on sync" }).click();
+  await expect(laptop.getByText(/Synced with/)).toBeVisible({ timeout: 15_000 });
+  await laptop.getByLabel(/Store courses on the sync server/).check();
+  await expect(laptop.getByLabel(/Upload courses I import/)).toBeChecked();
+
+  await laptop.goto("/import");
+  await laptop.setInputFiles('input[type="file"]', fixture);
+  await expect(laptop.getByRole("heading", { name: "Foundations of Widgetry", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await laptop.goto("/settings");
+  await expect(laptop.getByText("On server")).toBeVisible({ timeout: 30_000 });
+  await expect(laptop.getByText(/Using .* on the server/)).toBeVisible();
+  await laptop.getByRole("button", { name: "Add another device" }).click();
+  const link = (await laptop.locator(".pairing__link").textContent())!;
+
+  const phone = await (await browser.newContext()).newPage();
+  phone.on("pageerror", (error) => errors.push(error.message));
+  await phone.goto(link);
+  await phone.getByRole("button", { name: "Connect" }).click();
+  await expect(phone.getByText(/Synced with/)).toBeVisible({ timeout: 15_000 });
+
+  // Course storage is off on a device until it is turned on there.
+  await phone.goto("/courses");
+  await expect(phone.getByText("On your sync server")).toHaveCount(0);
+
+  await phone.goto("/settings");
+  await phone.getByLabel(/Store courses on the sync server/).check();
+  await phone.goto("/courses");
+  await expect(phone.getByText("On your sync server")).toBeVisible();
+  await phone.getByRole("button", { name: "Download" }).click();
+
+  // Downloaded, reassembled, imported: the course is now on the phone and opens.
+  await expect(phone.getByRole("link", { name: /Foundations of Widgetry/ })).toBeVisible({ timeout: 30_000 });
+  await expect(phone.getByText("On your sync server")).toHaveCount(0);
+  await phone.getByRole("link", { name: /Foundations of Widgetry/ }).click();
+  await phone.getByRole("navigation", { name: "Course contents" }).getByRole("link", { name: "Lecture Notes" }).click();
+  await phone.locator(".prose a[data-page-uid]").first().click();
+  await expect(phone.locator(".textLayer")).toContainText("Widget notes for lecture one", { timeout: 15_000 });
+
+  // Removing it from the server leaves both devices' copies alone.
+  await laptop.goto("/settings");
+  laptop.once("dialog", (dialog) => void dialog.accept());
+  await laptop.getByRole("button", { name: "Remove from server" }).click();
+  await expect(laptop.getByRole("button", { name: "Upload to server" })).toBeVisible();
+  await expect(laptop.getByText(/Using 0 B of/)).toBeVisible({ timeout: 10_000 }).catch(() => {});
+
+  expect(errors).toEqual([]);
+});

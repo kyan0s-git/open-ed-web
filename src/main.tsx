@@ -15,7 +15,16 @@ await progressStore.load();
 installDesktopHandlers();
 
 // Sync only loads on devices that have turned it on.
-if (readSyncConfig()) void import("./sync/engine").then(({ syncEngine }) => syncEngine.start());
+const sync = readSyncConfig();
+if (sync) void import("./sync/engine").then(({ syncEngine }) => syncEngine.start());
+// So do stored courses: finishing uploads a closed tab interrupted, and downloading
+// courses other devices stored, where this device has asked for that.
+if (sync?.courses?.enabled) {
+  void import("./sync/library").then(({ resumeUploads, startAutoDownload }) => {
+    void resumeUploads();
+    if (sync.courses?.autoDownload) startAutoDownload();
+  });
+}
 
 const container = document.getElementById("root");
 if (!container) throw new Error("No #root element to mount into.");

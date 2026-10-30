@@ -32,6 +32,15 @@ interface StoredExercise extends ExerciseItem {
   courseId: string;
 }
 
+/** A rendered thumbnail, so a PDF page is drawn once rather than on every visit. */
+export interface ThumbnailEntry {
+  /** courseId|zipPath */
+  key: string;
+  courseId: string;
+  /** JPEG, or null when the page could not be rendered (so it is not retried). */
+  image: Blob | null;
+}
+
 /** One PDF whose text has been indexed (or could not be), so indexing can resume. */
 export interface PdfIndexEntry {
   /** courseId|zipPath */
@@ -49,6 +58,7 @@ class ContentDb extends Dexie {
   skills!: EntityTable<Skill, "id">;
   searchDocs!: EntityTable<SearchDoc, "id">;
   pdfIndex!: EntityTable<PdfIndexEntry, "key">;
+  thumbnails!: EntityTable<ThumbnailEntry, "key">;
 
   constructor() {
     super("open-ed-web/content");
@@ -65,6 +75,10 @@ class ContentDb extends Dexie {
       searchDocs: "id, courseId",
       pdfIndex: "key, courseId",
     });
+    // Thumbnails for courses whose archive has no usable cover image.
+    this.version(3).stores({
+      thumbnails: "key, courseId",
+    });
   }
 }
 
@@ -79,6 +93,7 @@ const ALL_TABLES = () => [
   db.skills,
   db.searchDocs,
   db.pdfIndex,
+  db.thumbnails,
 ];
 
 /**
@@ -114,6 +129,7 @@ async function deleteCourseRows(courseId: string): Promise<void> {
     db.skills.where("courseId").equals(courseId).delete(),
     db.searchDocs.where("courseId").equals(courseId).delete(),
     db.pdfIndex.where("courseId").equals(courseId).delete(),
+    db.thumbnails.where("courseId").equals(courseId).delete(),
   ]);
 }
 

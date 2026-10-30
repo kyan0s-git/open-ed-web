@@ -49,6 +49,7 @@ function VideoView({
   highlight?: string;
 }) {
   const [playing, setPlaying] = useState(false);
+  const [posterFailed, setPosterFailed] = useState(() => typeof navigator !== "undefined" && navigator.onLine === false);
   // Arriving from a transcript search result opens the transcript at the match.
   const [showTranscript, setShowTranscript] = useState(Boolean(page && resource.transcriptPath));
   const transcript = useAssetUrl(courseId, resource.transcriptPath, "application/pdf");
@@ -69,7 +70,20 @@ function VideoView({
         // A facade until clicked: the YouTube player is a lot of script for a video
         // that may never be watched.
         <button className="video" type="button" onClick={() => setPlaying(true)}>
-          <img src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`} alt="" width={480} height={360} />
+          {posterFailed ? (
+            // Offline, or YouTube's image host is blocked: a poster of our own.
+            <span className="video__poster" aria-hidden="true">
+              {resource.title}
+            </span>
+          ) : (
+            <img
+              src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`}
+              alt=""
+              width={480}
+              height={360}
+              onError={() => setPosterFailed(true)}
+            />
+          )}
           <span className="video__play">
             <Icon name="play" size={26} />
           </span>

@@ -7,6 +7,9 @@ import { handleApi, optionsFromEnv, type VaultStore } from "./core";
 import { MemoryStore } from "./stores/memory";
 import { FileStore } from "./stores/file";
 import { RedisRestStore } from "./stores/redis";
+import { MemoryBlobStore } from "./stores/blobs-memory";
+import { FileBlobStore } from "./stores/blobs-file";
+import type { BlobStore } from "./core";
 
 /**
  * The Redis store runs against a real Redis when one is reachable over Upstash's REST
@@ -192,5 +195,100 @@ describe.skipIf(!redisUrl)("vercel function", () => {
     const get = await vercel.GET(new Request(`${BASE}/api/sync?route=vaults/${id}`, { headers: { Authorization: `Bearer ${TOKEN}` } }));
     expect(await get.text()).toBe("from vercel");
     await vercel.DELETE(new Request(`${BASE}/api/sync?route=vaults/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${TOKEN}` } }));
+  });
+});
+
+const CHUNK_A = "a".repeat(63) + "1";
+const CHUNK_B = "b".repeat(63) + "2";
+
+for (const [name, make] of [
+  ["memory", async () => ({ blobs: new MemoryBlobStore() as BlobStore, done: async () => {} })],
+  [
+    "file",
+    async () => {
+      const dir = await mkdtemp(join(tmpdir(), "oew-blobs-"));
+      return { blobs: new FileBlobStore(dir) as BlobStore, done: () => rm(dir, { recursive: true, force: true }) };
+    },
+  ],
+] as const) {
+  describe(`course chunks (${name} blob store)`, () => {
+    async function setup() {
+      const { blobs, done } = await make();
+      const store = new MemoryStore();
+      const options = { blobs, chunkBytes: 100, quotaBytes: 250 };
+      const api = (path: string, init: RequestInit & { token?: string } = {}) =>
+        call(store, `/api/v1/vaults/${ID}${path}`, { token: TOKEN, ...init }, options).then((r) => r!);
+      await api("", { method: "PUT", headers: { "If-None-Match": "*" }, body: bytes("progress") });
+      return { api, blobs, store, options, done };
+    }
+
+    it("stores chunks, reports which are missing, and serves them back", async () => {
+      const { api, done } = await setup();
+      try {
+        const query = (ids: string[]) =>
+          api("/chunks/query", { method: "POST", body: JSON.stringify({ ids }) }).then((r) => r.json());
+
+        expect(await query([CHUNK_A, CHUNK_B])).toMatchObject({ missing: [CHUNK_A, CHUNK_B], usedBytes: 0, quotaBytes: 250 });
+        expect((await api(`/chunks/${CHUNK_A}`, { method: "PUT", body: new Uint8Array(90).fill(7) })).status).toBe(201);
+        expect(await query([CHUNK_A, CHUNK_B])).toMatchObject({ missing: [CHUNK_B], usedBytes: 90 });
+
+        const read = await api(`/chunks/${CHUNK_A}`);
+        expect(read.headers.get("Cache-Control")).toContain("immutable");
+        expect(new Uint8Array(await read.arrayBuffer())).toEqual(new Uint8Array(90).fill(7));
+        expect((await api(`/chunks/${CHUNK_B}`)).status).toBe(404);
+
+        expect((await api("/chunks/delete", { method: "POST", body: JSON.stringify({ ids: [CHUNK_A] }) })).status).toBe(204);
+        expect((await api(`/chunks/${CHUNK_A}`)).status).toBe(404);
+      } finally {
+        await done();
+      }
+    });
+
+    it("enforces the chunk size and the vault's quota", async () => {
+      const { api, done } = await setup();
+      try {
+        // 100-byte chunks plus 64 bytes of allowed overhead.
+        expect((await api(`/chunks/${CHUNK_A}`, { method: "PUT", body: new Uint8Array(200) })).status).toBe(413);
+        expect((await api(`/chunks/${CHUNK_A}`, { method: "PUT", body: new Uint8Array(150) })).status).toBe(201);
+        const over = await api(`/chunks/${CHUNK_B}`, { method: "PUT", body: new Uint8Array(150) });
+        expect(over.status).toBe(507);
+        expect(await over.json()).toMatchObject({ error: "quota_exceeded", usedBytes: 150 });
+        // Replacing a chunk counts only the difference.
+        expect((await api(`/chunks/${CHUNK_A}`, { method: "PUT", body: new Uint8Array(150) })).status).toBe(201);
+      } finally {
+        await done();
+      }
+    });
+
+    it("guards chunks with the vault's token and removes them with the vault", async () => {
+      const { api, blobs, done } = await setup();
+      try {
+        await api(`/chunks/${CHUNK_A}`, { method: "PUT", body: new Uint8Array(10) });
+        expect((await api(`/chunks/${CHUNK_A}`, { token: OTHER })).status).toBe(403);
+        expect((await api(`/chunks/not-hex`)).status).toBe(400);
+
+        expect((await api("", { method: "DELETE" })).status).toBe(204);
+        expect(await blobs.list(`${ID}/`)).toEqual([]);
+      } finally {
+        await done();
+      }
+    });
+  });
+}
+
+describe("course storage availability", () => {
+  it("is advertised in health only when the host has a blob store", async () => {
+    const store = new MemoryStore();
+    const without = await (await call(store, "/api/v1/health"))!.json();
+    expect(without.courses).toBeNull();
+    const withBlobs = await (await call(store, "/api/v1/health", {}, { blobs: new MemoryBlobStore() }))!.json();
+    expect(withBlobs.courses).toMatchObject({ chunkBytes: 4 * 1024 * 1024 });
+  });
+
+  it("refuses chunks when there is no blob store, and before the vault exists", async () => {
+    const store = new MemoryStore();
+    expect((await call(store, `/api/v1/vaults/${ID}/chunks/${CHUNK_A}`, { token: TOKEN }, { blobs: new MemoryBlobStore() }))!.status).toBe(404);
+    await call(store, `/api/v1/vaults/${ID}`, { method: "PUT", token: TOKEN, headers: { "If-None-Match": "*" }, body: bytes("x") });
+    expect((await call(store, `/api/v1/vaults/${ID}/chunks/${CHUNK_A}`, { token: TOKEN }))!.status).toBe(501);
   });
 });

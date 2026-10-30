@@ -6,6 +6,7 @@ import { evictCourse } from "./useCourse";
 import { resetSearch } from "@/search/client";
 import type { CourseBundle } from "@/content/schema";
 import { Icon } from "@/ui/icons";
+import { readSyncConfig } from "@/sync/config";
 
 type Phase =
   | { kind: "idle" }
@@ -32,6 +33,11 @@ export function ImportPage() {
         resetSearch();
         // Read the course's PDFs into search in the background; it is usable meanwhile.
         void import("@/search/pdf-indexer").then(({ indexPdfText }) => indexPdfText());
+        // And store it on the sync server, if this device is set to.
+        if (readSyncConfig()?.courses?.enabled) {
+          const { id, title, courseNumber } = bundle.course;
+          void import("@/sync/library").then(({ uploadAfterImport }) => uploadAfterImport({ id, title, courseNumber }));
+        }
 
         // Go straight to the course when there is nothing worth reporting.
         if (bundle.warnings.length === 0) {
@@ -66,7 +72,8 @@ export function ImportPage() {
       <h1>Add a course</h1>
       <p className="lede">
         On any course at ocw.mit.edu, choose <em>Download course</em>, then drop the <code>.zip</code>{" "}
-        here. It is stored on this machine and never uploaded. Videos are not in OCW archives, but
+        here. The app keeps its own copy, so you can delete the download afterwards. Nothing is
+        uploaded unless you turn on course storage in Settings. Videos are not in OCW archives, but
         lectures still play: the archive carries each video’s YouTube id.
       </p>
 

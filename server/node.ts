@@ -2,7 +2,9 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
-import { handleApi, optionsFromEnv, type VaultStore } from "./core";
+import { handleApi, optionsFromEnv, type BlobStore, type VaultStore } from "./core";
+import { FileBlobStore } from "./stores/blobs-file";
+import { MemoryBlobStore } from "./stores/blobs-memory";
 import { FileStore } from "./stores/file";
 import { MemoryStore } from "./stores/memory";
 import { RedisRestStore, redisConfigFromEnv } from "./stores/redis";
@@ -13,7 +15,11 @@ import { RedisRestStore, redisConfigFromEnv } from "./stores/redis";
  *
  *   PORT          port to listen on (default 8787)
  *   HOST          interface to bind (default 0.0.0.0)
- *   DATA_DIR      where vaults are kept (default ./data); "memory" keeps them in RAM
+ *   DATA_DIR      where vaults and stored courses are kept (default ./data); "memory"
+ *                 keeps them in RAM
+ *   COURSE_STORAGE  "on" to also store course archives (in DATA_DIR/courses), so
+ *                 devices can download courses instead of importing them again
+ *   COURSE_QUOTA_BYTES, COURSE_CHUNK_BYTES   limits for stored courses
  *   STATIC_DIR    the built web app (default ./dist); set to "" to serve only the API
  *   UPSTASH_REDIS_REST_URL / _TOKEN   store vaults in Redis instead of files
  *   SYNC_MAX_BYTES, SYNC_ALLOWED_ORIGINS   see server/core.ts
@@ -26,7 +32,6 @@ const env = process.env;
 const port = Number(env.PORT ?? 8787);
 const host = env.HOST ?? "0.0.0.0";
 const staticDir = env.STATIC_DIR === "" ? null : resolve(env.STATIC_DIR ?? "dist");
-const options = optionsFromEnv(env);
 
 function pickStore(): { store: VaultStore; label: string } {
   const redis = redisConfigFromEnv(env);
@@ -36,7 +41,16 @@ function pickStore(): { store: VaultStore; label: string } {
   return { store: new FileStore(dir), label: dir };
 }
 
+function pickBlobs(): { blobs: BlobStore | null; label: string } {
+  if (env.COURSE_STORAGE !== "on") return { blobs: null, label: "off (set COURSE_STORAGE=on to store courses)" };
+  if (env.DATA_DIR === "memory") return { blobs: new MemoryBlobStore(), label: "memory (not persisted)" };
+  const dir = resolve(env.DATA_DIR ?? "data", "courses");
+  return { blobs: new FileBlobStore(dir), label: dir };
+}
+
 const { store, label } = pickStore();
+const { blobs, label: blobLabel } = pickBlobs();
+const options = { ...optionsFromEnv(env), blobs };
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -76,6 +90,7 @@ server.listen(port, host, () => {
   console.log(`open-ed-web listening on http://${host === "0.0.0.0" ? "localhost" : host}:${port}`);
   console.log(`  web app: ${staticDir ?? "not served"}`);
   console.log(`  vaults:  ${label}`);
+  console.log(`  courses: ${blobLabel}`);
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

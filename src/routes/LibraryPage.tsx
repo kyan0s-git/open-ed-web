@@ -4,6 +4,7 @@ import { useCourseSummaries } from "@/storage/queries";
 import { useProgress } from "@/mastery/useProgress";
 import { CourseCard } from "@/ui/CourseCard";
 import { Icon } from "@/ui/icons";
+import { ServerOnlyCourses } from "@/sync/CourseTransfer";
 
 export function LibraryPage() {
   const summaries = useCourseSummaries();
@@ -32,6 +33,8 @@ export function LibraryPage() {
           <Icon name="upload" /> Import a course
         </Link>
       </div>
+
+      <ServerOnlyCourses localIds={new Set(summaries.map(({ course }) => course.id))} />
 
       {summaries.length === 0 ? (
         <p className="empty">

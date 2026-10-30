@@ -14,9 +14,10 @@ a fresh copy.
 ## 2. Import it
 
 Open **Import** in the top bar and drop the `.zip` on the page, or choose it with the
-file picker. Importing takes a few seconds. The archive is stored on your device as it
-is, and pages, PDFs and images are read straight from it whenever you open them. Nothing
-is uploaded anywhere.
+file picker. Importing takes a few seconds. The app keeps its own copy of the archive,
+in the browser's storage or the desktop app's data folder, and reads pages, PDFs and
+images straight from it. **You can delete the downloaded `.zip` afterwards**; the course
+stays. Nothing is uploaded anywhere unless you turn on course storage (section 7).
 
 Importing the same course again (for example a newer download) updates it in place and
 keeps your progress.
@@ -91,8 +92,29 @@ devices. To stop, use **Stop syncing**: either just on this device, or delete th
 copy from the server for all devices. Progress on each device always stays. More detail
 is in [sync.md](sync.md).
 
-Course files are not synced, so import each course on each device where you want to
-read it. Progress for a course you have not imported yet waits until you do.
+Course files are not synced unless you choose to store them on the server (below).
+Without that, import each course on each device where you want to read it. Progress for
+a course you have not imported yet waits until you do.
+
+### Storing courses on the server
+
+If your sync server has course storage turned on, **Settings → Sync across devices →
+Courses on the server** offers:
+
+- **Store courses on the sync server**: the switch for this device. It is off until you
+  turn it on.
+- **Upload courses I import on this device**: on by default once storage is on. Turn it
+  off to upload only the courses you pick, with **Upload to server** in the list of
+  stored courses.
+- **Download courses my other devices store**: off by default. Turn it on to have
+  courses appear on this device by themselves, up to a size you choose (100 MB to any
+  size). Larger ones wait for you.
+
+Courses your other devices stored, but this one does not have yet, appear under
+**Courses → On your sync server** with a **Download** button. Uploads go in 4 MB pieces
+and resume if interrupted; a course already on the server is not uploaded again. Courses
+are encrypted on your device like your progress. **Remove from server** deletes the
+server's copy for every device but keeps the copies already on devices.
 
 ## 8. Install it
 

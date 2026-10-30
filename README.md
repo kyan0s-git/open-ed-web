@@ -4,8 +4,8 @@ Study MIT OpenCourseWare courses as structured, mastery-tracked courses: in the 
 as a desktop app, or both, with your progress kept in step across devices.
 
 You download a course from [ocw.mit.edu](https://ocw.mit.edu) as a `.zip` and import it.
-The archive stays on your device. It is stored once and read in place, with nothing unpacked,
-so a 250 MB course costs one write. Your progress lives in a portable `progress.json`. You can
+The app keeps its own copy, so you can delete the download. The copy is stored once and
+read in place, with nothing unpacked, so a 250 MB course costs one write. Your progress lives in a portable `progress.json`. You can
 export it, keep it in a folder you choose, or sync it between devices. Sync is end-to-end
 encrypted, so the server only ever holds data it cannot read.
 
@@ -25,6 +25,8 @@ encrypted, so the server only ever holds data it cannot read.
   Press `/` anywhere.
 - **Sync** between devices with a link or QR code. There are no accounts, and progress is
   encrypted on the device before it leaves it.
+- **Course storage** (optional): upload a course once and download it on your other
+  devices. Uploads are chunked, resumable and end-to-end encrypted.
 - **Desktop app** for Windows, macOS and Linux, from the same code.
 - **Light and dark** themes.
 
