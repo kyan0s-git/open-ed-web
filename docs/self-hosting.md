@@ -89,8 +89,7 @@ docker build -t open-ed-web .
 docker run -d --name open-ed-web -p 8787:8787 -v open-ed-web-data:/data --restart unless-stopped open-ed-web
 ```
 
-Each release also publishes an image to the GitHub Container Registry, as
-`ghcr.io/<owner>/<repo>:latest`.
+The image is built from this repository's `Dockerfile`; releases do not publish one.
 
 **Plain Node (22 or newer):**
 

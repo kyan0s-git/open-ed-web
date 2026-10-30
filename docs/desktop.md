@@ -104,18 +104,15 @@ The workflow:
    `open-ed-web-<version>-web.zip` and `open-ed-web-<version>-server.tar.gz`;
 3. builds desktop installers on Windows, macOS (Apple Silicon and Intel) and Linux, and
    attaches them;
-4. builds a multi-architecture Docker image and pushes it to
-   `ghcr.io/<owner>/<repo>:<version>` and `:latest`;
-5. publishes the release once all of that succeeded.
+4. publishes the release once all of that succeeded.
 
 If a step fails, fix it and re-run the failed jobs. You can also start the workflow from
 the **Actions** tab for an existing tag. The desktop version comes from `package.json`,
 so there is only one place to bump.
 
-The workflow needs nothing beyond the repository's own `GITHUB_TOKEN`. To let it publish
-the container image, check that **Settings → Actions → General → Workflow permissions**
-allows read and write. The image is private at first; make it public under your profile's
-**Packages** if you want others to pull it.
+The workflow needs nothing beyond the repository's own `GITHUB_TOKEN`, with
+**Settings → Actions → General → Workflow permissions** set to read and write so it can
+create the release.
 
 ### Optional settings
 
