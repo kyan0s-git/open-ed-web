@@ -127,13 +127,6 @@ export function SearchPage() {
         )}
       </div>
 
-      {indexing && (
-        <p className="notice" role="status">
-          Reading PDF text for search: {indexing.done} of {indexing.total} files. Results from lecture
-          notes and transcripts will keep appearing.
-        </p>
-      )}
-
       {searched && (
         <p className="muted search-count" aria-live="polite">
           {loading && hits.length === 0
@@ -149,6 +142,15 @@ export function SearchPage() {
           <Result key={hit.id} hit={hit} query={query} showCourse={!params.course && (summaries?.length ?? 0) > 1} />
         ))}
       </ol>
+
+      {/* Below the results, so that when indexing finishes and this goes away, nothing
+          the learner may be about to click moves. */}
+      {indexing && (
+        <p className="notice" role="status">
+          Reading PDF text for search: {indexing.done} of {indexing.total} files. Results from lecture
+          notes and transcripts will keep appearing.
+        </p>
+      )}
 
       {!searched && <Tips />}
     </div>

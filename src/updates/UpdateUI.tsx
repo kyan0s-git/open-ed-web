@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import { Icon } from "@/ui/icons";
 import { formatBytes } from "@/content/ResourceView";
 import {
   APP_VERSION,
+  appVersion,
   checkForUpdate,
   download,
   restartToUpdate,
@@ -37,12 +39,19 @@ export function UpdateBanner() {
 }
 
 /** Settings section: current version, automatic updates, check now. */
+function useAppVersion(): string {
+  const [version, setVersion] = useState(APP_VERSION);
+  useEffect(() => void appVersion().then(setVersion), []);
+  return version;
+}
+
 export function UpdateSettings() {
   const { state, settings, offered } = useUpdates();
+  const version = useAppVersion();
   if (!updatesAvailable()) {
     return (
       <p className="muted" style={{ margin: 0, fontSize: "var(--step--1)" }}>
-        open-ed-web {APP_VERSION}.
+        open-ed-web {version}.
       </p>
     );
   }
@@ -66,7 +75,7 @@ export function UpdateSettings() {
     <section className="section stack">
       <h2 style={{ margin: 0 }}>Updates</h2>
       <p style={{ margin: 0 }}>
-        You are running open-ed-web {APP_VERSION}. {status}
+        You are running open-ed-web {version}. {status}
       </p>
       <label className="check">
         <input type="checkbox" checked={settings.auto} onChange={(event) => setAutoUpdate(event.target.checked)} />

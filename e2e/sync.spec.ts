@@ -98,6 +98,7 @@ test("courses in the library download to other devices from OCW, not from the se
   await phone.goto("/settings");
   phone.once("dialog", (dialog) => void dialog.accept());
   await phone.getByRole("button", { name: "Remove from this device" }).click();
+  await expect(phone.getByRole("button", { name: "Remove from this device" })).toHaveCount(0);
   const before = fetched.length;
   await phone.goto("/courses");
   await expect(phone.getByText("In your library, not on this device")).toBeVisible();

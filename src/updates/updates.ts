@@ -16,7 +16,20 @@ import { isDesktopApp } from "@/desktop";
 declare const __APP_VERSION__: string;
 declare const __UPDATES__: boolean;
 
+/** The version of this build; on desktop, see appVersion() for the installed binary's. */
 export const APP_VERSION = __APP_VERSION__;
+
+let installed: Promise<string> | null = null;
+
+/** The version actually running: the desktop binary's own, else this build's. */
+export function appVersion(): Promise<string> {
+  installed ??= isDesktopApp()
+    ? (window as unknown as { __TAURI_INTERNALS__: { invoke<T>(cmd: string): Promise<T> } }).__TAURI_INTERNALS__
+        .invoke<string>("plugin:app|version")
+        .catch(() => APP_VERSION)
+    : Promise.resolve(APP_VERSION);
+  return installed;
+}
 
 export function updatesAvailable(): boolean {
   return __UPDATES__ && isDesktopApp();
