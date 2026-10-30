@@ -5,9 +5,22 @@ import { Archive } from "./zip";
 import { detectFormat } from "./detect";
 import { parseOcwHugoJson } from "./ocw-hugo-json";
 import type { CourseBundle } from "@/content/schema";
-import uids from "../../fixtures/uids.json";
-
 const fixture = (name: string) => resolve(__dirname, "../../fixtures", name);
+
+// Generated alongside the archives by scripts/make-fixtures.mjs (run by `pretest`). Read
+// at runtime rather than imported, so typechecking a fresh checkout does not need it.
+type FixtureUid =
+  | "captionSrt"
+  | "lecture1"
+  | "lecture2"
+  | "lectures"
+  | "notesPdf"
+  | "quiz"
+  | "syllabus"
+  | "transcript"
+  | "video1"
+  | "videoDuplicate";
+const uids = JSON.parse(await readFile(fixture("uids.json"), "utf8")) as Record<FixtureUid, string>;
 
 async function open(name: string): Promise<Archive> {
   return Archive.open(new Blob([await readFile(fixture(name))]));
