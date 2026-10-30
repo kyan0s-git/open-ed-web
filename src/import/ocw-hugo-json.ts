@@ -16,7 +16,10 @@ import { extractHeadings, extractLinks, htmlToText, type PageLinks } from "./htm
 import { parseNavTree, type NavEntry } from "./nav";
 import type { OcwContentMap, OcwCourseData, OcwPageData } from "./ocw-types";
 import { extractQuizItems, stripQuizMarkup } from "./quiz";
+import { addCounts, tidyHtml, type TidyCounts } from "./tidy";
+import { looksLikeFileName, readableTitle } from "./titles";
 import type { Archive } from "./zip";
+import { PARSER_VERSION } from "./version";
 
 export interface ParseOptions {
   courseId: string;
@@ -80,6 +83,16 @@ export async function parseOcwHugoJson(
   report("Linking materials", 0, 1);
   dropMediaSidecars(records);
 
+  // Repair the published HTML before anything reads it, so the fixes also inform where
+  // materials are placed (OCW's own previous/next links, for one, would mislead it).
+  const tidied: TidyCounts = {};
+  for (const record of records.values()) {
+    if (!record.data.content) continue;
+    const result = tidyHtml(record.data.content, { sitePath: courseData.site_url_path });
+    record.data.content = result.html;
+    addCounts(tidied, result.counts);
+  }
+
   const nav = await readNav(archive, base, warnings);
   let uidByPath = new Map([...records.values()].map((r) => [r.path, r.uid]));
 
@@ -92,6 +105,7 @@ export async function parseOcwHugoJson(
 
   dropDuplicateResources(records, links, uidByPath);
   uidByPath = new Map([...records.values()].map((r) => [r.path, r.uid]));
+  const retitled = retitleResources(records, links, uidByPath, nav, courseData);
 
   const nodes = buildNodes(nav, records, links, uidByPath);
   const sequence = studySequence(nodes, links, uidByPath);
@@ -129,7 +143,7 @@ export async function parseOcwHugoJson(
   report("Validating", 1, 1);
 
   return CourseBundle.parse({
-    course: toCourse(courseData, archive, base, sequence, options),
+    course: { ...toCourse(courseData, archive, base, sequence, options), tidied, retitled },
     nodes,
     pages,
     resources,
@@ -138,6 +152,81 @@ export async function parseOcwHugoJson(
     warnings,
   } satisfies CourseBundle);
 }
+
+/**
+ * Give materials titled with a file name the name the course itself uses for them: the
+ * text of the first link to each one, in sidebar order (see titles.ts). Returns how many
+ * were renamed.
+ */
+function retitleResources(
+  records: Map<string, ParsedRecord>,
+  links: Map<string, PageLinks>,
+  uidByPath: Map<string, string>,
+  nav: NavEntry[],
+  courseData: OcwCourseData,
+): number {
+  // The course's cover and its thumbnail are images like "1-60s06-th.jpg".
+  const coverUids = new Map<string, string>();
+  const cover = (courseData as { course_image?: { content?: string } }).course_image?.content;
+  const thumb = (courseData as { course_image_thumbnail?: { content?: string } }).course_image_thumbnail?.content;
+  if (cover) coverUids.set(cover, "Course image");
+  if (thumb) coverUids.set(thumb, "Course image (thumbnail)");
+
+  const order = new Map(nav.map((entry, index) => [entry.uid, index]));
+  const pages = [...links.keys()].sort((a, b) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity));
+
+  const firstLink = new Map<string, { label: string; page: string; count: number }>();
+  for (const pageUid of pages) {
+    const pageLinks = links.get(pageUid)!;
+    for (const target of pageLinks.targets) {
+      const uid = uidByPath.get(target);
+      const label = pageLinks.labels[target];
+      if (uid && label && !firstLink.has(uid)) firstLink.set(uid, { label, page: pageUid, count: pageLinks.targets.length });
+    }
+  }
+
+  let renamed = 0;
+  for (const record of records.values()) {
+    if (kindOf(record.data) !== "resource") continue;
+    const original = (record.data.title ?? "").trim();
+    if (!looksLikeFileName(original)) continue;
+    if (coverUids.has(record.uid)) {
+      record.data.title = coverUids.get(record.uid)!;
+      renamed++;
+      continue;
+    }
+    const link = firstLink.get(record.uid);
+    const title = readableTitle(original, {
+      linkText: link?.label,
+      pageTitle: link ? records.get(link.page)?.data.title : undefined,
+      pageLinkCount: link?.count,
+    });
+    if (title && title !== original) {
+      record.data.title = title;
+      renamed++;
+    }
+  }
+
+  // Rows that link one item in several formats ("(PDF)", "(XLS)") give each the same
+  // name; the format tells them apart.
+  const byTitle = new Map<string, ParsedRecord[]>();
+  for (const record of records.values()) {
+    if (kindOf(record.data) !== "resource" || !record.data.file) continue;
+    const list = byTitle.get(record.data.title ?? "") ?? [];
+    list.push(record);
+    byTitle.set(record.data.title ?? "", list);
+  }
+  for (const [title, list] of byTitle) {
+    if (!title || list.length < 2) continue;
+    const formats = list.map((record) => /\.([a-z0-9]{2,4})$/i.exec(record.data.file ?? "")?.[1]?.toUpperCase() ?? "");
+    if (new Set(formats).size < 2) continue;
+    list.forEach((record, index) => {
+      if (formats[index] && formats[index] !== "PDF") record.data.title = `${title} (${formats[index]})`;
+    });
+  }
+  return renamed;
+}
+
 
 export function skillIdFor(courseId: string, uid: string): string {
   return `${courseId}:${uid}`;
@@ -559,6 +648,9 @@ function toCourse(
     imagePath: data.image_src ? resolveArchivePath(data.image_src, archive, base) : null,
     sitePath: data.site_url_path,
     downloadUrl: ocwDownloadUrl(data),
+    tidied: {},
+    retitled: 0,
+    parserVersion: PARSER_VERSION,
     sequence,
     importedAt: options.importedAt ?? new Date().toISOString(),
   };

@@ -8,6 +8,7 @@ import { collectDue, lastVisited, useCourseProgress, useProgress } from "@/maste
 import { courseMastery, type MasteryLevel } from "@/mastery/levels";
 import { Level, Meter } from "@/ui/Meter";
 import { Icon } from "@/ui/icons";
+import { TIDY_RULES, type TidyRule } from "@/import/tidy";
 import { CoverTile } from "@/ui/CourseCard";
 
 const PREVIEW_ROWS = 25;
@@ -112,10 +113,49 @@ function Overview({ loaded }: { loaded: LoadedCourse }) {
         </section>
       )}
 
+      <FindYourWay loaded={loaded} />
+
       {skills.length > 0 && <Skills loaded={loaded} />}
 
       <Attribution loaded={loaded} />
     </>
+  );
+}
+
+/** The standard sections, as one grid: the same places to look in every course. */
+function FindYourWay({ loaded }: { loaded: LoadedCourse }) {
+  const { course, sections } = loaded;
+  if (sections.length === 0) return null;
+  return (
+    <section className="section">
+      <div className="section__head">
+        <h2>Find your way</h2>
+        <span className="muted">The same sections in every course</span>
+      </div>
+      <div className="findgrid">
+        {sections.map((section) => (
+          <Link
+            key={section.def.id}
+            to="/c/$courseId/s/$section"
+            params={{ courseId: course.id, section: section.def.id }}
+            className="card findcard"
+          >
+            <span className="findcard__label">
+              {section.def.label}
+              {section.items.length > 0 && <span className="findcard__count">{section.items.length}</span>}
+            </span>
+            <span className="findcard__blurb">
+              {section.items.length > 0
+                ? section.items
+                    .slice(0, 2)
+                    .map((item) => item.title)
+                    .join(" · ")
+                : section.def.blurb}
+            </span>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -217,6 +257,27 @@ function Attribution({ loaded }: { loaded: LoadedCourse }) {
         )}{" "}
         This reader is not affiliated with MIT.
       </p>
+      <TidySummary loaded={loaded} />
     </footer>
+  );
+}
+
+/** What the importer repaired in this course's published pages, so changes are not silent. */
+function TidySummary({ loaded }: { loaded: LoadedCourse }) {
+  const { tidied, retitled } = loaded.course;
+  const entries = Object.entries(tidied).filter(([, n]) => n > 0) as [TidyRule, number][];
+  if (entries.length === 0 && !retitled) return null;
+  return (
+    <details className="tidied">
+      <summary>Tidied for reading</summary>
+      <ul>
+        {retitled > 0 && <li>{retitled} materials named after their file renamed to what the course calls them</li>}
+        {entries.map(([rule, n]) => (
+          <li key={rule}>
+            {n} × {TIDY_RULES[rule] ?? rule}
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

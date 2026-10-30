@@ -58,6 +58,12 @@ const pageRoute = createRoute({
   component: lazyRouteComponent(() => import("./routes/ContentPage"), "ContentPage"),
 });
 
+const sectionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/c/$courseId/s/$section",
+  component: lazyRouteComponent(() => import("./routes/SectionPage"), "SectionPage"),
+});
+
 const reviewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/review",
@@ -100,6 +106,7 @@ const routeTree = rootRoute.addChildren([
   importRoute,
   courseRoute,
   pageRoute,
+  sectionRoute,
   reviewRoute,
   searchRoute,
   settingsRoute,

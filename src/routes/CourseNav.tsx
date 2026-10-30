@@ -49,13 +49,36 @@ export function CourseNav({
   };
 
   return (
-    <nav className="coursenav" id="course-contents" aria-label="Course contents">
+    // One container for the drawer; two landmarks inside, so the standard sections and
+    // the course's own pages (which can share names, like "Syllabus") stay distinct.
+    <div className="coursenav" id="course-contents">
       <Link to="/c/$courseId" params={{ courseId: course.id }} className="coursenav__course" onClick={onNavigate}>
         <span>{course.courseNumber}</span>
         <strong>{course.title}</strong>
       </Link>
-      {renderLevel(null)}
-    </nav>
+      {loaded.sections.length > 0 && (
+        <nav aria-label="Find in this course">
+          <p className="coursenav__heading">Find</p>
+          <ul className="coursenav__sections">
+            {loaded.sections.map((section) => (
+              <li key={section.def.id}>
+                <Link
+                  to="/c/$courseId/s/$section"
+                  params={{ courseId: course.id, section: section.def.id }}
+                  activeProps={{ "data-current": "true" }}
+                  onClick={onNavigate}
+                >
+                  {section.def.label}
+                  {section.items.length > 0 && <span className="coursenav__count">{section.items.length}</span>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="coursenav__heading">Course pages</p>
+        </nav>
+      )}
+      <nav aria-label="Course contents">{renderLevel(null)}</nav>
+    </div>
   );
 }
 

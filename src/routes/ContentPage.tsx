@@ -182,7 +182,24 @@ function Item({
 function materialsNotLinked(loaded: LoadedCourse, uid: string, html: string): CourseNode[] {
   const children = (loaded.childrenOf.get(uid) ?? []).filter((n) => n.kind === "resource");
   if (children.length === 0) return [];
-  return children.filter((child) => !html.includes(child.path.slice(child.path.lastIndexOf("/") + 1)));
+  // Linked or shown inline (an image in the page counts) by its page or file name.
+  return children.filter((child) => {
+    const file = loaded.resourceByUid.get(child.uid)?.zipPath;
+    const names = [child.path.slice(child.path.lastIndexOf("/") + 1), file ? file.slice(file.lastIndexOf("/") + 1) : ""];
+    return !names.some((name) => name && html.includes(name));
+  });
+}
+
+/**
+ * " · Video", " · PDF" for a material, so a lecture's video is told apart from the
+ * session page of the same name.
+ */
+function kindLabel(loaded: LoadedCourse, node: CourseNode): string {
+  const resource = loaded.resourceByUid.get(node.uid);
+  if (!resource) return "";
+  if (resource.youtubeId) return " · Video";
+  if (resource.mime === "application/pdf" || /\.pdf$/i.test(resource.zipPath ?? "")) return " · PDF";
+  return "";
 }
 
 /** Previous and next in study order, with n / p as keyboard shortcuts. */
@@ -216,7 +233,7 @@ function Pager({ loaded, uid }: { loaded: LoadedCourse; uid: string }) {
         {prev && (
           <Link to="/c/$courseId/p/$pageUid" params={{ courseId: course.id, pageUid: prev.uid }} rel="prev">
             <span className="pager__dir">
-              <Icon name="left" size={14} /> Previous
+              <Icon name="left" size={14} /> Previous{kindLabel(loaded, prev)}
             </span>
             <span className="pager__title">{prev.title}</span>
           </Link>
@@ -229,7 +246,7 @@ function Pager({ loaded, uid }: { loaded: LoadedCourse; uid: string }) {
             rel="next"
           >
             <span className="pager__dir">
-              Next <Icon name="right" size={14} />
+              Next{kindLabel(loaded, next)} <Icon name="right" size={14} />
             </span>
             <span className="pager__title">{next.title}</span>
           </Link>

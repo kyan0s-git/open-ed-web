@@ -15,6 +15,12 @@ encrypted, so the server only ever holds data it cannot read.
   activity chart, and "continue where you left off".
 - **Reader**: follows the course's own sidebar, with breadcrumbs, previous/next in study
   order (`p` / `n`) and a drawer on small screens.
+- **The same sections in every course** (Syllabus, Lecture notes, Assignments with
+  their solutions, Exams…), built from OCW's own tags, so things are always in the same
+  place.
+- **Tidied pages**: the importer repairs common faults in OCW's published HTML and names
+  materials that were titled with a file name. Checked against 22 courses picked at
+  random from OCW's catalogue.
 - **PDF viewer** built on pdf.js: themed toolbar, zoom and fit to width, selectable text,
   a dimmed mode for night reading. It remembers your page.
 - **Math** typeset by MathJax, including spoken equations for screen readers.
@@ -64,6 +70,7 @@ npm run e2e                   # browser tests against the self-hosted server
 npm run build:server && npm start   # web app + sync API on http://localhost:8787
 npm run desktop:dev           # the desktop app, with hot reload
 OCW_ARCHIVE=/path/to/course.zip npx vitest run real-archive   # parse a real download
+OCW_SURVEY_DIR=/path/to/zips npx vitest run survey      # check the importer against many courses
 ```
 
 Set `CHROMIUM_PATH` to use an existing Chrome for the browser tests, and `E2E_BASE_URL`
@@ -74,7 +81,7 @@ to run them against another deployment, such as `wrangler dev` or a preview URL.
 | Path | What |
 | --- | --- |
 | `src/` | The web app (Vite, React 19, TanStack Router) |
-| `src/import/` | Reads OCW archives into courses |
+| `src/import/` | Reads OCW archives into courses; `tidy.ts` and `titles.ts` repair them |
 | `src/sync/` | Client side of sync: encryption, the sync loop, pairing UI |
 | `src/library/` | The course library, and downloading courses from OCW |
 | `src/updates/` | Desktop auto-update |

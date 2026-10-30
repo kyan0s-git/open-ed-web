@@ -69,6 +69,36 @@ export async function importCourseArchive(
   }
 }
 
+/**
+ * Re-read a course from the archive stored at import, with the current importer. Used to
+ * bring courses imported by an older version up to date; ids are kept, so progress stays
+ * attached, and the archive is not written again.
+ */
+export async function reparseStoredCourse(
+  courseId: string,
+  importedAt: string,
+  onProgress: (progress: ImportProgress) => void = () => {},
+): Promise<CourseBundle> {
+  const stored = await readCourseArchive(courseId);
+  const archive = await Archive.open(stored);
+  try {
+    const detection = detectFormat(archive);
+    if (detection.format !== "ocw-hugo-json") {
+      throw new UnsupportedArchiveError(detection.format, explain(detection.format));
+    }
+    const bundle = await parseOcwHugoJson(archive, detection, {
+      courseId,
+      sourceHash: await hashSource(stored),
+      importedAt,
+      onProgress: (step, done, total) => onProgress({ step, done, total }),
+    });
+    await saveCourseBundle(bundle, docsFromBundle(bundle));
+    return bundle;
+  } finally {
+    await archive.close().catch(() => {});
+  }
+}
+
 /** Reopen a stored archive, for reading assets after the import. */
 export async function openStoredArchive(courseId: string): Promise<Archive> {
   return Archive.open(await readCourseArchive(courseId));

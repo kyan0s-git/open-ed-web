@@ -1,3 +1,4 @@
+import { standardSections, type Section } from "@/content/sections";
 import { useEffect, useState } from "react";
 import type { Course, CourseNode, Resource, Skill } from "@/content/schema";
 import { db, loadCourseOutline } from "@/storage/db";
@@ -14,6 +15,8 @@ export interface LoadedCourse {
   skillByNode: Map<string, Skill>;
   /** Children indexed by parent uid, in sidebar order. */
   childrenOf: Map<string | null, CourseNode[]>;
+  /** The standard sections (content/sections.ts), the same in every course. */
+  sections: Section[];
 }
 
 const cache = new Map<string, LoadedCourse>();
@@ -53,13 +56,20 @@ export function useCourse(courseId: string): LoadedCourse | null | undefined {
       }
       for (const siblings of childrenOf.values()) siblings.sort((a, b) => a.order - b.order);
 
+      const resourceByUid = new Map(loaded.resources.map((r) => [r.uid, r]));
       const result: LoadedCourse = {
         ...loaded,
+        sections: standardSections({
+          nodes: loaded.nodes,
+          resources: resourceByUid,
+          sequence: loaded.course.sequence,
+          childrenOf,
+        }),
         skills,
         childrenOf,
         maps: buildCourseMaps(loaded.nodes, loaded.resources),
         byUid: new Map(loaded.nodes.map((n) => [n.uid, n])),
-        resourceByUid: new Map(loaded.resources.map((r) => [r.uid, r])),
+        resourceByUid,
         skillByNode: new Map(skills.map((s) => [s.nodeUid, s])),
       };
       cache.set(courseId, result);

@@ -40,6 +40,16 @@ export const Course = z.object({
   sitePath: z.string().optional(),
   /** Where the course's archive can be downloaded again, when known (OCW courses). */
   downloadUrl: z.string().optional(),
+  /** Repairs made to the published pages at import, by rule (see import/tidy.ts). */
+  tidied: z.record(z.string(), z.number()).default({}),
+  /** Materials renamed from a file name to what the course calls them. */
+  retitled: z.number().default(0),
+  /**
+   * Which version of the importer produced this course. Courses from an older one are
+   * re-read from their stored archive in the background, so improvements reach them
+   * without the learner importing again.
+   */
+  parserVersion: z.number().default(0),
   /**
    * The order a learner works through the course: each page in sidebar order, followed
    * by the materials it links to. Previous/next navigation walks this.

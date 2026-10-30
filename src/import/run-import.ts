@@ -16,7 +16,18 @@ export function runImport(
       importCourseArchive(file, onProgress).then(({ bundle }) => bundle),
     );
   }
+  return inWorker({ kind: "import", file }, onProgress);
+}
 
+/** Re-read a stored course with the current importer (see pipeline.reparseStoredCourse). */
+export function runReparse(courseId: string, importedAt: string): Promise<CourseBundle> {
+  if (typeof Worker === "undefined") {
+    return import("./pipeline").then(({ reparseStoredCourse }) => reparseStoredCourse(courseId, importedAt));
+  }
+  return inWorker({ kind: "reparse", courseId, importedAt }, () => {});
+}
+
+function inWorker(request: WorkerRequest, onProgress: (progress: ImportProgress) => void): Promise<CourseBundle> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL("./pipeline.worker.ts", import.meta.url), {
       type: "module",
@@ -51,6 +62,6 @@ export function runImport(
       finish(() => reject(new Error(event.message || "The import worker failed to start."))),
     );
 
-    worker.postMessage({ kind: "import", file } satisfies WorkerRequest);
+    worker.postMessage(request);
   });
 }

@@ -151,3 +151,58 @@ test("a pre-2022 archive is refused with an explanation, not a crash", async ({ 
   await page.setInputFiles('input[type="file"]', resolve(here, "../fixtures/ocw-legacy.zip"));
   await expect(page.getByRole("alert")).toContainText("pre-2022");
 });
+
+test("every course gets the same standard sections", async ({ page }) => {
+  await importFixture(page);
+  await expect(page.getByRole("heading", { name: "Find your way" })).toBeVisible();
+  const find = page.getByRole("navigation", { name: "Find in this course" });
+  await expect(find.getByRole("link", { name: /^Syllabus/ })).toBeVisible();
+
+  await find.getByRole("link", { name: /^Lecture notes/ }).click();
+  await expect(page.getByRole("heading", { name: "Lecture notes", level: 1 })).toBeVisible();
+  await expect(page.locator(".sectionlist li").first()).toContainText("Lecture 1 Notes");
+});
+
+test("courses imported by an older importer are brought up to date in the background", async ({ page }) => {
+  await importFixture(page);
+  const courseId = page.url().split("/c/")[1]!;
+
+  // Pretend this course came from an earlier version of the importer.
+  const setVersion = (version: number) =>
+    page.evaluate(
+      ([id, v]) =>
+        new Promise<void>((resolve, reject) => {
+          const open = indexedDB.open("open-ed-web/content");
+          open.onsuccess = () => {
+            const tx = open.result.transaction("courses", "readwrite");
+            const store = tx.objectStore("courses");
+            const get = store.get(id as string);
+            get.onsuccess = () => store.put({ ...get.result, parserVersion: v });
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+          };
+        }),
+      [courseId, version] as const,
+    );
+  const getVersion = () =>
+    page.evaluate(
+      (id) =>
+        new Promise<number>((resolve) => {
+          const open = indexedDB.open("open-ed-web/content");
+          open.onsuccess = () => {
+            const get = open.result.transaction("courses").objectStore("courses").get(id);
+            get.onsuccess = () => resolve(get.result.parserVersion);
+          };
+        }),
+      courseId,
+    );
+
+  const current = await getVersion();
+  expect(current).toBeGreaterThan(0);
+  await setVersion(0);
+  await page.reload();
+  await expect.poll(getVersion, { timeout: 20_000 }).toBe(current);
+  // Still the same course, still readable.
+  await page.goto(`/c/${courseId}`);
+  await expect(page.getByRole("heading", { name: "Foundations of Widgetry", level: 1 })).toBeVisible();
+});

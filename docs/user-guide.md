@@ -33,6 +33,34 @@ keeps your progress.
 - **Videos** play from YouTube. The transcript from the archive is one click away.
 - **Mark finished** when you are done with a page.
 
+### Finding things: the same sections in every course
+
+OCW courses are organised however their instructors chose: by topic, week, unit or step.
+So every course also gets the same standard sections, in the same order: **Syllabus,
+Calendar, Lecture notes, Lecture videos, Readings, Assignments, Exams, Recitations,
+Projects, More**. They appear under **Find your way** on the course page and under **Find**
+at the top of the sidebar, with only the ones a course has. Each lists everything of that
+kind in study order, labelled PDF or Video. Assignments and exams show a **Solutions**
+link beside each one that has them. The course's own pages are still in the sidebar
+under **Course pages**.
+
+### Tidied for reading
+
+The importer repairs common faults in OCW's published pages:
+
+- OCW's own Previous/Next links are removed, since the reader has its own.
+- Images that were laid out with tables become figures that reflow on a phone.
+- Headings are renumbered so a page's sections look like sections.
+- Italics that ran on across sentences are repaired.
+- Links to the same course on ocw.mit.edu are pointed at your copy.
+- Stray empty paragraphs and doubly escaped characters are cleaned up.
+- Materials published with a file name as their title (`ps9_solutions.pdf`) get the name
+  the course uses for them ("Problem Set 9 Solutions").
+
+The course page lists what was changed under **Tidied for reading**. Courses imported by
+an earlier version are updated in the background the next time the app starts, from the
+copy it already has, and your progress stays as it was.
+
 ## 4. Rate, and review
 
 After each material, rate how well you know it: **Not yet**, **Shaky**, **Solid** or

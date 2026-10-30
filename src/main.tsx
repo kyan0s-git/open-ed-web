@@ -36,6 +36,8 @@ const resumeIndexing = () => {
   void import("./search/pdf-indexer").then(({ indexPdfText }) => indexPdfText());
   // Keep the course library current, and fetch courses other devices added.
   void import("./library/library").then(({ startLibrary }) => startLibrary());
+  // Re-read courses imported by an older importer, so its fixes reach them too.
+  void import("./library/upgrade").then(({ upgradeStoredCourses }) => upgradeStoredCourses());
 };
 if ("requestIdleCallback" in window) requestIdleCallback(resumeIndexing, { timeout: 5000 });
 else setTimeout(resumeIndexing, 3000);

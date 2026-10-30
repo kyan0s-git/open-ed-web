@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { importCourseArchive, UnsupportedArchiveError } from "./pipeline";
+import { importCourseArchive, reparseStoredCourse, UnsupportedArchiveError } from "./pipeline";
 import type { ImportProgress } from "./pipeline";
 import type { CourseBundle } from "@/content/schema";
 
@@ -11,7 +11,9 @@ import type { CourseBundle } from "@/content/schema";
  * and OPFS, so the entire pipeline moves across unchanged.
  */
 
-export type WorkerRequest = { kind: "import"; file: File };
+export type WorkerRequest =
+  | { kind: "import"; file: File }
+  | { kind: "reparse"; courseId: string; importedAt: string };
 
 export type WorkerResponse =
   | { kind: "progress"; progress: ImportProgress }
@@ -19,12 +21,17 @@ export type WorkerResponse =
   | { kind: "failed"; message: string; unsupported: boolean };
 
 self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
-  if (event.data.kind !== "import") return;
-
+  const request = event.data;
   const post = (response: WorkerResponse) => self.postMessage(response);
+  const onProgress = (progress: ImportProgress) => post({ kind: "progress", progress });
 
-  importCourseArchive(event.data.file, (progress) => post({ kind: "progress", progress }))
-    .then(({ bundle }) => post({ kind: "done", bundle }))
+  const work =
+    request.kind === "import"
+      ? importCourseArchive(request.file, onProgress).then(({ bundle }) => bundle)
+      : reparseStoredCourse(request.courseId, request.importedAt, onProgress);
+
+  work
+    .then((bundle) => post({ kind: "done", bundle }))
     .catch((error: Error) =>
       post({
         kind: "failed",
