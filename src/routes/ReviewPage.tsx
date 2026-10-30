@@ -4,17 +4,19 @@ import { db } from "@/storage/db";
 import type { Skill } from "@/content/schema";
 import { collectDue, useProgress } from "@/mastery/useProgress";
 import { SelfAssess } from "@/mastery/SelfAssess";
-import { levelLabel } from "@/mastery/levels";
+import { describeInterval } from "@/mastery/scheduler";
+import { Icon } from "@/ui/icons";
 
 /**
  * One queue across every imported course.
  *
- * Reviewing is the habit this whole thing is built around, so it deliberately does not
- * ask which course to study — it asks what is due today, oldest first.
+ * Reviewing is the habit this is built around, so it does not ask which course to
+ * study — it asks what is due, oldest first, one at a time.
  */
 export function ReviewPage() {
   const progress = useProgress();
-  const [skills, setSkills] = useState<Map<string, Skill>>(new Map());
+  const [skills, setSkills] = useState<Map<string, Skill> | null>(null);
+  const [done, setDone] = useState(0);
 
   const due = useMemo(() => collectDue(progress), [progress]);
 
@@ -22,46 +24,65 @@ export function ReviewPage() {
     void db.skills.toArray().then((rows) => setSkills(new Map(rows.map((s) => [s.id, s]))));
   }, []);
 
-  const current = due[0];
+  if (!skills) return <div className="page" />;
+
+  // Skip anything whose course has since been removed.
+  const queue = due.filter((item) => skills.has(item.skillId));
+  const current = queue[0];
 
   if (!current) {
+    const upcoming = Object.values(progress.courses)
+      .flatMap((course) => Object.values(course.skills))
+      .filter((skill) => skill.due)
+      .sort((a, b) => (a.due ?? "").localeCompare(b.due ?? ""))[0];
+
     return (
-      <div className="page">
-        <h1>Nothing due</h1>
+      <div className="page page--narrow">
+        <p className="eyebrow">Review</p>
+        <h1>{done > 0 ? "All caught up" : "Nothing due"}</h1>
         <p className="lede">
-          Reviews appear here when they come up. Read something new in the meantime and rate it
-          — that is what puts it in the queue.
+          {done > 0 && `You reviewed ${done} ${done === 1 ? "item" : "items"}. `}
+          {upcoming
+            ? `The next review comes up ${describeInterval(upcoming)}.`
+            : "Study a lecture and rate how well you know it — that is what puts it in the queue."}
         </p>
         <Link to="/" className="btn btn--quiet">
-          Back to courses
+          <Icon name="home" /> Back to the dashboard
         </Link>
       </div>
     );
   }
 
-  const skill = skills.get(current.skillId);
-  const pageUid = skill?.nodeUid;
+  const skill = skills.get(current.skillId)!;
 
   return (
-    <div className="page">
-      <h1>Review</h1>
-      <p className="lede">
-        {due.length} due · {current.courseTitle}
-      </p>
+    <div className="page page--narrow">
+      <div className="dash-head">
+        <div>
+          <p className="eyebrow">Review · {queue.length} due</p>
+          <h1>{skill.title}</h1>
+          <p className="muted" style={{ margin: 0 }}>
+            {skill.kind} · {current.courseTitle}
+          </p>
+        </div>
+      </div>
 
-      <div className="stack">
-        <h2 style={{ margin: 0 }}>{skill?.title ?? "Untitled"}</h2>
-        <p className="resources__kind">Currently {levelLabel(current.progress.level as 0)}</p>
-
-        {pageUid && (
-          <Link
-            to="/c/$courseId/p/$pageUid"
-            params={{ courseId: current.courseId, pageUid }}
-            className="btn btn--quiet"
-          >
-            Open the material
-          </Link>
-        )}
+      <div className="stack" style={{ maxWidth: "none" }}>
+        <div className="card reviewcard">
+          <p style={{ margin: 0 }}>
+            Try to recall the main ideas before you look. Then rate yourself honestly — the schedule only
+            works if the ratings are true.
+          </p>
+          <div className="row">
+            <Link
+              to="/c/$courseId/p/$pageUid"
+              params={{ courseId: current.courseId, pageUid: skill.nodeUid }}
+              className="btn btn--quiet"
+            >
+              <Icon name="external" /> Open the material
+            </Link>
+          </div>
+        </div>
 
         <SelfAssess
           key={current.skillId}
@@ -69,6 +90,7 @@ export function ReviewPage() {
           courseTitle={current.courseTitle}
           skillId={current.skillId}
           current={current.progress}
+          onRated={() => setDone((count) => count + 1)}
         />
       </div>
     </div>

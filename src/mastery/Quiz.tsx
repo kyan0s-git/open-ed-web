@@ -65,7 +65,7 @@ export function Quiz({
 
   return (
     <div className="stack">
-      <p className="resources__kind">
+      <p className="muted">
         Question {index + 1} of {items.length}
       </p>
       <div className="prose" dangerouslySetInnerHTML={{ __html: sanitizeCourseHtml(item.promptHtml) }} />

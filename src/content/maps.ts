@@ -1,51 +1,55 @@
 import type { CourseNode, Resource } from "./schema";
-import { normalize } from "./Html";
+import { basename, canonicalPath } from "./paths";
+
+export interface AssetRef {
+  zipPath: string;
+  mime?: string;
+}
 
 export interface CourseMaps {
   pathToUid: Map<string, string>;
-  assetPaths: Map<string, { zipPath: string; mime?: string }>;
+  assetPaths: Map<string, AssetRef>;
 }
 
 /**
  * Lookup tables for rewriting links inside course HTML.
  *
- * Assets are keyed by their published path *and* by filename. Exporters move files
- * around (OCW's help pages describe them landing in a `static_resources` folder), so a
- * link written against the live site often will not match the path inside the archive,
- * while the filename still does.
+ * Assets are keyed by path *and* by filename. Archives move files — a PDF published at
+ * the course root ships in static_resources — so a link written against the live site
+ * often will not match the path inside the archive, while the filename still does.
  */
 export function buildCourseMaps(nodes: CourseNode[], resources: Resource[]): CourseMaps {
   const pathToUid = new Map<string, string>();
-  for (const node of nodes) {
-    pathToUid.set(normalize(node.path), node.uid);
-  }
+  for (const node of nodes) pathToUid.set(canonicalPath(node.path), node.uid);
 
-  const assetPaths = new Map<string, { zipPath: string; mime?: string }>();
-  const byUid = new Map(nodes.map((node) => [node.uid, node]));
-
+  const assetPaths = new Map<string, AssetRef>();
   for (const resource of resources) {
     if (!resource.zipPath) continue;
-    const value = { zipPath: resource.zipPath, mime: resource.mime };
-
-    assetPaths.set(normalize(resource.zipPath), value);
-    assetPaths.set(basename(resource.zipPath), value);
-
-    // A link may point at the resource's own page rather than the file.
-    const node = byUid.get(resource.uid);
-    if (node) assetPaths.set(normalize(node.path), value);
+    const ref = { zipPath: resource.zipPath, mime: resource.mime };
+    assetPaths.set(canonicalPath(resource.zipPath), ref);
+    assetPaths.set(basename(resource.zipPath), ref);
   }
 
   return { pathToUid, assetPaths };
 }
 
-export function basename(path: string): string {
-  return path.slice(path.lastIndexOf("/") + 1);
+/** Find an archive file for a canonical site path, falling back to its filename. */
+export function lookupAsset(assetPaths: Map<string, AssetRef>, path: string): AssetRef | undefined {
+  return assetPaths.get(path) ?? assetPaths.get(basename(path));
 }
 
-export function lookupAsset(
-  assetPaths: CourseMaps["assetPaths"],
-  href: string,
-): { zipPath: string; mime?: string } | undefined {
-  const path = normalize(href);
-  return assetPaths.get(path) ?? assetPaths.get(basename(path));
+/** Files referenced from course HTML that are not resources, e.g. inline images. */
+export function guessMime(path: string): string | undefined {
+  const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
+  return (
+    {
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      gif: "image/gif",
+      svg: "image/svg+xml",
+      webp: "image/webp",
+      pdf: "application/pdf",
+    } as Record<string, string>
+  )[ext];
 }

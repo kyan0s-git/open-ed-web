@@ -1,65 +1,62 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import type { Course } from "@/content/schema";
-import { listCourses } from "@/storage/db";
+import { useCourseSummaries } from "@/storage/queries";
 import { useProgress } from "@/mastery/useProgress";
-import { courseMastery, type MasteryLevel } from "@/mastery/levels";
-import { Mastery } from "@/ui/Mastery";
+import { CourseCard } from "@/ui/CourseCard";
+import { Icon } from "@/ui/icons";
 
 export function LibraryPage() {
-  const [courses, setCourses] = useState<Course[] | null>(null);
+  const summaries = useCourseSummaries();
   const progress = useProgress();
+  const [query, setQuery] = useState("");
 
-  useEffect(() => {
-    let live = true;
-    listCourses().then((rows) => live && setCourses(rows));
-    return () => {
-      live = false;
-    };
-  }, []);
+  if (summaries === null) return <div className="page" />;
 
-  if (courses === null) return <div className="page" />;
-
-  if (courses.length === 0) {
-    return (
-      <div className="page">
-        <h1>No courses yet</h1>
-        <p className="lede">
-          Download a course from MIT OpenCourseWare and drop the <code>.zip</code> in. It stays
-          on this machine — nothing is uploaded.
-        </p>
-        <Link to="/import" className="btn">
-          Import a course
-        </Link>
-      </div>
-    );
-  }
+  const needle = query.trim().toLowerCase();
+  const shown = needle
+    ? summaries.filter(({ course }) =>
+        [course.title, course.courseNumber, ...course.topics, ...course.instructors.map((i) => i.name)]
+          .filter(Boolean)
+          .some((field) => field!.toLowerCase().includes(needle)),
+      )
+    : summaries;
 
   return (
     <div className="page">
-      <h1>Courses</h1>
-      <p className="lede">{courses.length} imported.</p>
+      <div className="dash-head">
+        <div>
+          <p className="eyebrow">Library</p>
+          <h1>Courses</h1>
+        </div>
+        <Link to="/import" className="btn">
+          <Icon name="upload" /> Import a course
+        </Link>
+      </div>
 
-      <ul className="library">
-        {courses.map((course) => {
-          const skills = progress.courses[course.id]?.skills ?? {};
-          const levels = Object.values(skills).map((s) => s.level as MasteryLevel);
-
-          return (
-            <li key={course.id}>
-              <Link to="/c/$courseId" params={{ courseId: course.id }}>
-                <span className="library__title">{course.title}</span>
-                <Mastery percent={courseMastery(levels)} />
-                <span className="library__meta">
-                  {[course.courseNumber, [course.term, course.year].filter(Boolean).join(" ")]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+      {summaries.length === 0 ? (
+        <p className="empty">
+          No courses yet. <Link to="/import">Import one</Link> to get started.
+        </p>
+      ) : (
+        <>
+          {summaries.length > 3 && (
+            <input
+              type="search"
+              className="search"
+              placeholder="Filter by title, number, topic or instructor"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              aria-label="Filter courses"
+            />
+          )}
+          <div className="coursecards">
+            {shown.map((summary) => (
+              <CourseCard key={summary.course.id} summary={summary} progress={progress} />
+            ))}
+          </div>
+          {shown.length === 0 && <p className="empty">No course matches “{query}”.</p>}
+        </>
+      )}
     </div>
   );
 }

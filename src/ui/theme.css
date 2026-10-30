@@ -3,82 +3,132 @@
  *
  * Decisions, so later edits know what was deliberate:
  *
- * - Type is system stacks only. No webfont bytes at all, which is the point of a
- *   project with a 150 KB budget. Course prose is serif and app chrome is sans, so it
- *   is always obvious which text is MIT's and which is ours.
+ * - Interface type is Atkinson Hyperlegible Next, drawn by the Braille Institute so that
+ *   easily confused shapes (l/I/1, O/0) stay distinct. Course numbers like "8.04" and
+ *   segment labels like "L1.2" are everywhere in this app.
+ * - Course prose is Literata, designed for long-form reading on screens. Serif prose
+ *   against sans chrome also keeps it obvious which words are MIT's and which are ours.
  * - Two hues with separate jobs: clay means "you can act here", teal means "you know
  *   this" and carries the mastery ramp. Nothing else is coloured.
- * - Deliberately not MIT red. This is an independent reader and should not imply
- *   any affiliation with MIT.
- * - Neutrals carry a slight warm cast so long reading sessions are less clinical than
- *   a stock grey ramp.
+ * - Deliberately not MIT red: this is an independent reader and should not imply any
+ *   affiliation with MIT.
+ * - Light and dark are both first-class. The choice follows the system unless the
+ *   learner picks one; see src/ui/theme.ts and the inline script in index.html.
  */
 
-:root {
-  color-scheme: light dark;
+@import "@fontsource-variable/atkinson-hyperlegible-next/wght.css";
+@import "@fontsource-variable/literata/wght.css";
+@import "@fontsource-variable/literata/wght-italic.css";
 
-  --font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-prose: ui-serif, Charter, Georgia, "Times New Roman", serif;
+:root {
+  color-scheme: light;
+
+  --font-ui: "Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-prose: "Literata Variable", ui-serif, Charter, Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
-  /* Warm neutral ramp, picked rather than inherited from a framework. */
-  --paper: #fbfaf8;
-  --paper-raised: #ffffff;
-  --paper-sunken: #f2f0ec;
-  --rule: #e0ddd6;
-  --rule-strong: #c8c4ba;
-  --ink: #1c1a17;
-  --ink-muted: #6a655d;
-  --ink-faint: #918b81;
+  /* Warm neutrals, picked rather than inherited, for long sessions. */
+  --paper: #f7f5f1;
+  --paper-raised: #fffdfa;
+  --paper-sunken: #eeebe5;
+  --rule: #e2ded6;
+  --rule-strong: #cbc5ba;
+  --ink: #1d1b18;
+  --ink-muted: #5f5a52;
+  --ink-faint: #8a8378;
 
-  --clay: #a84f28;
-  --clay-strong: #8d4020;
-  --clay-wash: #f7ece6;
+  --clay: #a64b23;
+  --clay-strong: #8a3c1a;
+  --clay-wash: #f6e9e1;
+  --on-clay: #fffdfa;
 
-  /* Mastery ramp: one hue, four steps, so level reads as depth not category. */
-  --teal-1: #cfded9;
-  --teal-2: #7fb0a6;
-  --teal-3: #3d8177;
-  --teal-4: #17564f;
-  --teal-wash: #e8f1ee;
+  /* Mastery ramp: one hue, four steps, so level reads as depth, not category. */
+  --teal-1: #d4e4df;
+  --teal-2: #7fb3a8;
+  --teal-3: #2f7e72;
+  --teal-4: #155249;
+  --teal-wash: #e6f0ed;
 
   --warn: #8a5a00;
 
-  --radius-sm: 3px;
-  --radius-md: 6px;
+  --shadow: 0 1px 2px rgb(40 30 20 / 0.06), 0 4px 16px rgb(40 30 20 / 0.05);
 
-  --measure: 68ch;
-  --sidebar-width: 19rem;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --measure: 70ch;
+  --sidebar-width: 20rem;
+  --topbar-height: 3.5rem;
 
   --step--1: 0.8125rem;
   --step-0: 0.9375rem;
   --step-1: 1.0625rem;
   --step-2: 1.375rem;
   --step-3: 1.875rem;
+  --step-4: 2.5rem;
 }
 
+/* Dark, when chosen explicitly… */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  /*
+   * Graphite with a faint cool cast. The first dark palette reused the light theme's
+   * warm neutrals and read as brown; dark surfaces now stay neutral, and tinted ones
+   * are mixed from the accent instead of picked as separate browns.
+   */
+  --paper: #131518;
+  --paper-raised: #1b1e22;
+  --paper-sunken: #0f1113;
+  --rule: #2a2e34;
+  --rule-strong: #3d424a;
+  --ink: #e8eaed;
+  --ink-muted: #a6acb5;
+  --ink-faint: #7b828c;
+  --clay: #f08c5a;
+  --clay-strong: #f6a77e;
+  /* Orange mixed into dark grey is brown, so active states lift neutrally instead. */
+  --clay-wash: #262a31;
+  --on-clay: #131518;
+  --teal-1: #1f3a37;
+  --teal-2: #377a70;
+  --teal-3: #56b3a3;
+  --teal-4: #8fd6c8;
+  --teal-wash: color-mix(in srgb, #56b3a3 13%, #1b1e22);
+  --warn: #e0b052;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 6px 20px rgb(0 0 0 / 0.3);
+}
+
+/* …or when the system prefers it and the learner has not chosen light. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #14130f;
-    --paper-raised: #1c1a16;
-    --paper-sunken: #100f0c;
-    --rule: #302c26;
-    --rule-strong: #453f37;
-    --ink: #eae6de;
-    --ink-muted: #a49d91;
-    --ink-faint: #7b7469;
-
-    --clay: #d98553;
-    --clay-strong: #eda274;
-    --clay-wash: #2a1d14;
-
-    --teal-1: #24423d;
-    --teal-2: #3d7a70;
-    --teal-3: #63a99d;
-    --teal-4: #93cabf;
-    --teal-wash: #16241f;
-
-    --warn: #d7a24a;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    /*
+     * Graphite with a faint cool cast. The first dark palette reused the light theme's
+     * warm neutrals and read as brown; dark surfaces now stay neutral, and tinted ones
+     * are mixed from the accent instead of picked as separate browns.
+     */
+    --paper: #131518;
+    --paper-raised: #1b1e22;
+    --paper-sunken: #0f1113;
+    --rule: #2a2e34;
+    --rule-strong: #3d424a;
+    --ink: #e8eaed;
+    --ink-muted: #a6acb5;
+    --ink-faint: #7b828c;
+    --clay: #f08c5a;
+    --clay-strong: #f6a77e;
+    /* Orange mixed into dark grey is brown, so active states lift neutrally instead. */
+  --clay-wash: #262a31;
+    --on-clay: #131518;
+    --teal-1: #1f3a37;
+    --teal-2: #377a70;
+    --teal-3: #56b3a3;
+    --teal-4: #8fd6c8;
+    --teal-wash: color-mix(in srgb, #56b3a3 13%, #1b1e22);
+    --warn: #e0b052;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 6px 20px rgb(0 0 0 / 0.3);
   }
 }
 
@@ -90,6 +140,8 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--topbar-height) + 1rem);
 }
 
 body {
@@ -99,6 +151,8 @@ body {
   font-family: var(--font-ui);
   font-size: var(--step-0);
   line-height: 1.55;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
@@ -116,9 +170,16 @@ a:hover {
   border-radius: var(--radius-sm);
 }
 
-button {
+button,
+input,
+select {
   font: inherit;
   color: inherit;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
 }
 
 @media (prefers-reduced-motion: reduce) {

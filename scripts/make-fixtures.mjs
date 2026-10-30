@@ -220,13 +220,40 @@ const contentMap = Object.fromEntries(
   Object.entries(pages).map(([path, data]) => [data.uid, `/${path}/data.json`]),
 );
 
+/**
+ * A real, minimal one-page PDF with a line of text, so the viewer's rendering and text
+ * layer are exercised rather than only its error path. Byte offsets in the xref table
+ * are computed, not hand-written.
+ */
+function minimalPdf(text) {
+  const stream = `BT /F1 24 Tf 72 720 Td (${text}) Tj ET`;
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let body = "%PDF-1.4\n";
+  const offsets = [];
+  objects.forEach((object, i) => {
+    offsets.push(body.length);
+    body += `${i + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = body.length;
+  body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) body += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return strToU8(body);
+}
+
 /** Modern archive: rendered HTML plus the coursedata/contentmap JSON outputs. */
 function modernArchive() {
   const files = {
     "index.html": strToU8(indexHtml),
     "data.json": strToU8(JSON.stringify(courseData, null, 2)),
     "content_map.json": strToU8(JSON.stringify(contentMap, null, 2)),
-    "static_resources/0a1b_lec1.pdf": strToU8("%PDF-1.4 fixture\n"),
+    "static_resources/0a1b_lec1.pdf": minimalPdf("Widget notes for lecture one"),
     "static_resources/0c1d_dQw4w9WgXcQ.vtt": strToU8("WEBVTT\n"),
     "static_resources/0e1f_dQw4w9WgXcQ.pdf": strToU8("%PDF-1.4 transcript\n"),
     "static_resources/0g1h_dQw4w9WgXcQ.srt": strToU8("1\n"),

@@ -66,15 +66,44 @@ export const CourseProgress = z.object({
 });
 export type CourseProgress = z.infer<typeof CourseProgress>;
 
+/** What happened on one day, for streaks and the activity chart. */
+export const DayActivity = z.object({
+  reviews: z.number().int().nonnegative().default(0),
+  completed: z.number().int().nonnegative().default(0),
+});
+export type DayActivity = z.infer<typeof DayActivity>;
+
+/** About a year of history; older days fall off so the file cannot grow without bound. */
+export const MAX_ACTIVITY_DAYS = 400;
+
 export const ProgressDoc = z.object({
   schema: z.literal(PROGRESS_SCHEMA),
   updatedAt: z.string(),
   courses: z.record(z.string(), CourseProgress).default({}),
+  /**
+   * Activity per local calendar day ("2026-10-29"). Added after the first release;
+   * the default keeps older progress files valid without a migration.
+   */
+  activity: z.record(z.string(), DayActivity).default({}),
 });
 export type ProgressDoc = z.infer<typeof ProgressDoc>;
 
 export function emptyProgress(now = new Date()): ProgressDoc {
-  return { schema: PROGRESS_SCHEMA, updatedAt: now.toISOString(), courses: {} };
+  return { schema: PROGRESS_SCHEMA, updatedAt: now.toISOString(), courses: {}, activity: {} };
+}
+
+/** Local calendar day, so "today" means the learner's today rather than UTC's. */
+export function dayKey(date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export function trimActivity(activity: ProgressDoc["activity"]): ProgressDoc["activity"] {
+  const days = Object.keys(activity).sort();
+  if (days.length <= MAX_ACTIVITY_DAYS) return activity;
+  return Object.fromEntries(days.slice(-MAX_ACTIVITY_DAYS).map((day) => [day, activity[day]!]));
 }
 
 export function serializeProgress(doc: ProgressDoc): string {
@@ -135,10 +164,23 @@ export function mergeProgress(base: ProgressDoc, incoming: ProgressDoc): Progres
     });
   }
 
+  // Per day, the larger count wins: the same day recorded on two devices is not two days.
+  const activity: ProgressDoc["activity"] = { ...base.activity };
+  for (const [day, value] of Object.entries(incoming.activity)) {
+    const existing = activity[day];
+    activity[day] = existing
+      ? {
+          reviews: Math.max(existing.reviews, value.reviews),
+          completed: Math.max(existing.completed, value.completed),
+        }
+      : value;
+  }
+
   return {
     schema: PROGRESS_SCHEMA,
     updatedAt: max(base.updatedAt, incoming.updatedAt),
     courses,
+    activity: trimActivity(activity),
   };
 }
 

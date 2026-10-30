@@ -9,8 +9,24 @@ can export, back up, or keep in a synced folder — there is no server and no da
 
 ## Status
 
-Working end to end: import an archive, read the course, rate what you have read, and
-review what is due. Search, PDF text extraction and offline install are still to come.
+Working end to end, and verified against a real download (8.04 Quantum Physics I,
+Spring 2016: 157 materials, 146 skills, parsed in about 600 ms):
+
+- **Dashboard** with what is due, your streak, materials finished, overall mastery, a
+  two-week activity chart and "continue where you left off".
+- **Reader** that follows the course's own sidebar, with breadcrumbs, previous/next in
+  study order (`p` / `n` on the keyboard) and a drawer on small screens.
+- **PDF viewer** built on pdf.js: themed toolbar, zoom and fit-to-width, selectable
+  text, a dimmed mode for reading at night, and it remembers your page.
+- **Math** typeset by MathJax, the renderer OCW authors against, including spoken
+  equations for screen readers.
+- **Videos** from YouTube via the ids the archive carries, with transcripts from the
+  archive and a download link.
+- **Mastery**: FSRS scheduling from self-ratings and from OCW's own quiz questions, one
+  review queue across every course.
+- **Light and dark** themes, following the system unless you pick one.
+
+Search and installing as an offline app are still to come.
 
 ## Development
 
@@ -20,11 +36,24 @@ npm run dev
 npm test                      # unit tests (fixtures are generated automatically)
 npm run verify                # typecheck, build, size budget, unit tests
 CHROMIUM_PATH=/path/to/chrome npm run e2e   # browser tests
+OCW_ARCHIVE=/path/to/course.zip npx vitest run real-archive   # parse a real download
 ```
 
-The initial payload has a 150 KB gzipped budget, enforced by `npm run size` in CI. Nearly
-everything is lazily loaded: the archive reader, the content database, the scheduler and
-the HTML parser all stay out of the first load.
+### Staying light
+
+The first load is about 132 KB of JavaScript and CSS, gzipped, against a 150 KB budget
+that CI enforces with `npm run size`. Everything heavy loads only when a page needs it:
+
+| Loaded when | What | Size (gzipped) |
+| --- | --- | --- |
+| A course is opened | archive reader, content database | ~90 KB |
+| A PDF is opened | pdf.js, plus its worker (cached after) | ~150 KB + ~380 KB |
+| A page contains math | MathJax with fonts | ~600 KB |
+| Text is shown | two variable fonts, only the faces and scripts used | ~35–90 KB |
+
+MathJax and pdf.js's support files are copied into `public/vendor` by `npm run vendor`
+(run automatically before `dev` and `build`), so nothing is fetched from a CDN and both
+work offline.
 
 ## How an OCW archive is read
 

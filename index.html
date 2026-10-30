@@ -4,7 +4,21 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>open-ed-web</title>
-    <meta name="description" content="Read MIT OpenCourseWare course archives as structured, mastery-tracked courses. Everything stays on your machine." />
+    <meta
+      name="description"
+      content="Read MIT OpenCourseWare course archives as structured, mastery-tracked courses. Everything stays on your machine."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f7f5f1" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#131518" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23a64b23'/%3E%3Cpath d='M9 22V10h6.5a4.5 4.5 0 0 1 0 9H9' fill='none' stroke='%23fffdfa' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M19 22h4' stroke='%23fffdfa' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E" />
+    <script>
+      // Apply the saved theme before first paint so a reload never flashes the wrong one.
+      try {
+        var theme = localStorage.getItem("open-ed-web:theme");
+        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

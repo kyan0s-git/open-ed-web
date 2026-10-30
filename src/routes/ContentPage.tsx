@@ -1,123 +1,232 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { db } from "@/storage/db";
-import type { ExerciseItem, PageContent, Resource } from "@/content/schema";
+import type { CourseNode, ExerciseItem, PageContent } from "@/content/schema";
 import { Html } from "@/content/Html";
 import { ResourceView } from "@/content/ResourceView";
+import { sanitizeCourseHtml } from "@/content/sanitize";
 import { SelfAssess } from "@/mastery/SelfAssess";
 import { Quiz } from "@/mastery/Quiz";
-import { markItem, useCourseProgress } from "@/mastery/useProgress";
-import { useCourse } from "./useCourse";
-import { CourseNav } from "./CourseNav";
+import { markItem, unmarkItem, useCourseProgress } from "@/mastery/useProgress";
+import { ancestry, useCourse, type LoadedCourse } from "./useCourse";
+import { ReaderLayout } from "./ReaderLayout";
+import { Icon } from "@/ui/icons";
 
 export function ContentPage() {
   const { courseId, pageUid } = useParams({ from: "/c/$courseId/p/$pageUid" });
   const loaded = useCourse(courseId);
-  const progress = useCourseProgress(courseId);
+
+  if (loaded === undefined) return <div className="page" />;
+  if (loaded === null || !loaded.byUid.has(pageUid)) {
+    return (
+      <div className="page page--narrow">
+        <h1>Not found</h1>
+        <p className="lede">This page is not part of the course, or the course was removed.</p>
+        <Link to="/" className="btn btn--quiet">
+          Back to the dashboard
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <ReaderLayout loaded={loaded} currentUid={pageUid}>
+      {/* Keyed so per-page state (a played video, a quiz in progress) resets on navigation. */}
+      <Item key={pageUid} loaded={loaded} uid={pageUid} />
+    </ReaderLayout>
+  );
+}
+
+function Item({ loaded, uid }: { loaded: LoadedCourse; uid: string }) {
+  const { course } = loaded;
+  const node = loaded.byUid.get(uid)!;
+  const resource = loaded.resourceByUid.get(uid);
+  const skill = loaded.skillByNode.get(uid);
+  const progress = useCourseProgress(course.id);
+  const done = progress?.items[uid]?.status === "done";
+
   const [content, setContent] = useState<PageContent | null | undefined>(undefined);
   const [exercises, setExercises] = useState<ExerciseItem[]>([]);
 
   useEffect(() => {
     let live = true;
-    setContent(undefined);
-
     void Promise.all([
-      db.pages.get(pageUid),
-      db.exercises.where("courseId").equals(courseId).toArray(),
-    ]).then(([page, allExercises]) => {
+      resource ? undefined : db.pages.get(uid),
+      db.exercises.where("courseId").equals(course.id).toArray(),
+    ]).then(([page, all]) => {
       if (!live) return;
       setContent(page ?? null);
-      setExercises(allExercises.filter((item) => item.id.startsWith(`${pageUid}:`)));
+      setExercises(all.filter((item) => item.id.startsWith(`${uid}:`)));
     });
-
     return () => {
       live = false;
     };
-  }, [courseId, pageUid]);
+  }, [course.id, uid, resource]);
 
-  // Opening a page is enough to count as started; finishing is the learner's call.
+  // Opening something counts as started; finishing is the learner's call.
   useEffect(() => {
-    if (loaded && content !== undefined) {
-      markItem(courseId, loaded.course.title, pageUid, "in_progress");
-    }
-  }, [courseId, pageUid, loaded, content]);
+    void markItem(course.id, course.title, uid, "in_progress");
+  }, [course.id, course.title, uid]);
 
-  if (!loaded) return <div className="page" />;
+  useEffect(() => {
+    document.title = `${node.title} · ${course.title}`;
+  }, [node.title, course.title]);
 
-  const node = loaded.nodes.find((candidate) => candidate.uid === pageUid);
-  const childResources = (loaded.childrenOf.get(pageUid) ?? []).filter(
-    (child) => child.kind === "resource",
-  );
-  const resources = childResources
-    .map((child) => loaded.resources.find((resource) => resource.uid === child.uid))
-    .filter((resource): resource is Resource => Boolean(resource));
-
-  const asResource = loaded.resources.find((resource) => resource.uid === pageUid);
-  const skillId = `${courseId}:${pageUid}`;
-  const skill = progress?.skills[skillId];
+  const crumbs = ancestry(loaded, uid);
+  const unlinkedMaterials = materialsNotLinked(loaded, uid, content?.html ?? "");
 
   return (
-    <div className="reader">
-      <CourseNav loaded={loaded} currentUid={pageUid} />
-      <div className="page">
-        <h1>{node?.title ?? "Untitled"}</h1>
+    <article>
+      <ol className="crumbs" aria-label="Breadcrumb">
+        <li>
+          <Link to="/c/$courseId" params={{ courseId: course.id }}>
+            {course.courseNumber ?? course.title}
+          </Link>
+        </li>
+        {crumbs.map((crumb) => (
+          <li key={crumb.uid}>
+            <Link to="/c/$courseId/p/$pageUid" params={{ courseId: course.id, pageUid: crumb.uid }}>
+              {crumb.title}
+            </Link>
+          </li>
+        ))}
+      </ol>
 
-        {asResource && <ResourceView courseId={courseId} resource={asResource} />}
-
-        {content && (
-          <Html
-            html={content.html}
-            courseId={courseId}
-            pathToUid={loaded.maps.pathToUid}
-            assetPaths={loaded.maps.assetPaths}
-          />
-        )}
-
-        {resources.length > 0 && (
-          <section className="resources">
-            <h2>Materials</h2>
-            <ul>
-              {resources.map((resource) => (
-                <li key={resource.uid}>
-                  <Link
-                    to="/c/$courseId/p/$pageUid"
-                    params={{ courseId, pageUid: resource.uid }}
-                  >
-                    <span>{resource.title}</span>
-                    <span className="resources__kind">
-                      {resource.youtubeId ? "Video" : (resource.mime ?? resource.resourcetype)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {exercises.length > 0 && (
-          <section className="resources">
-            <h2>Check yourself</h2>
-            <Quiz
-              courseId={courseId}
-              courseTitle={loaded.course.title}
-              skillId={skillId}
-              items={exercises}
-            />
-          </section>
-        )}
-
-        {content && content.html.trim().length > 0 && exercises.length === 0 && (
-          <section className="resources">
-            <SelfAssess
-              courseId={courseId}
-              courseTitle={loaded.course.title}
-              skillId={skillId}
-              current={skill}
-              onRated={() => markItem(courseId, loaded.course.title, pageUid, "done")}
-            />
-          </section>
-        )}
+      <div className="titlebar">
+        <div>
+          {skill && <p className="eyebrow">{skill.kind}</p>}
+          <h1>{node.title}</h1>
+        </div>
+        <button
+          type="button"
+          className={done ? "btn btn--done" : "btn btn--quiet"}
+          aria-pressed={done}
+          onClick={() =>
+            void (done ? unmarkItem(course.id, course.title, uid) : markItem(course.id, course.title, uid, "done"))
+          }
+        >
+          <Icon name="check" /> {done ? "Finished" : "Mark finished"}
+        </button>
       </div>
-    </div>
+
+      {resource && <ResourceView courseId={course.id} resource={resource} />}
+
+      {resource?.descriptionHtml && !/^<p>This resource contains information/i.test(resource.descriptionHtml) && (
+        <div
+          className="prose muted"
+          style={{ marginTop: "1rem" }}
+          dangerouslySetInnerHTML={{ __html: sanitizeCourseHtml(resource.descriptionHtml) }}
+        />
+      )}
+
+      {content && content.html.trim() && (
+        <Html html={content.html} courseId={course.id} pageDir={node.path} maps={loaded.maps} />
+      )}
+
+      {unlinkedMaterials.length > 0 && (
+        <section className="related">
+          <h2>Materials</h2>
+          <ul className="outline">
+            {unlinkedMaterials.map((material) => (
+              <li key={material.uid}>
+                <Link to="/c/$courseId/p/$pageUid" params={{ courseId: course.id, pageUid: material.uid }}>
+                  <Icon name={loaded.resourceByUid.get(material.uid)?.youtubeId ? "play" : "file"} />
+                  <span>{material.title}</span>
+                  <span />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {exercises.length > 0 && (
+        <section className="card assess">
+          <h2>Check yourself</h2>
+          <Quiz courseId={course.id} courseTitle={course.title} skillId={skill?.id ?? `${course.id}:${uid}`} items={exercises} />
+        </section>
+      )}
+
+      {skill && exercises.length === 0 && (
+        <SelfAssess
+          courseId={course.id}
+          courseTitle={course.title}
+          skillId={skill.id}
+          current={progress?.skills[skill.id]}
+          onRated={() => void markItem(course.id, course.title, uid, "done")}
+          prompt={resource?.youtubeId ? "How well did you follow this lecture?" : "How well do you know this?"}
+        />
+      )}
+
+      <Pager loaded={loaded} uid={uid} />
+    </article>
+  );
+}
+
+/**
+ * Materials that sit under this page but that its text does not link to. OCW pages
+ * usually list their materials in a table already; repeating those would show
+ * everything twice.
+ */
+function materialsNotLinked(loaded: LoadedCourse, uid: string, html: string): CourseNode[] {
+  const children = (loaded.childrenOf.get(uid) ?? []).filter((n) => n.kind === "resource");
+  if (children.length === 0) return [];
+  return children.filter((child) => !html.includes(child.path.slice(child.path.lastIndexOf("/") + 1)));
+}
+
+/** Previous and next in study order, with n / p as keyboard shortcuts. */
+function Pager({ loaded, uid }: { loaded: LoadedCourse; uid: string }) {
+  const navigate = useNavigate();
+  const { course } = loaded;
+  const index = course.sequence.indexOf(uid);
+  const prev = index > 0 ? loaded.byUid.get(course.sequence[index - 1]!) : undefined;
+  const next = index >= 0 ? loaded.byUid.get(course.sequence[index + 1]!) : undefined;
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable]")) return;
+
+      const go = event.key === "n" ? next : event.key === "p" ? prev : undefined;
+      if (!go) return;
+      event.preventDefault();
+      void navigate({ to: "/c/$courseId/p/$pageUid", params: { courseId: course.id, pageUid: go.uid } });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [prev, next, navigate, course.id]);
+
+  if (!prev && !next) return null;
+
+  return (
+    <>
+      <nav className="pager" aria-label="Previous and next">
+        {prev && (
+          <Link to="/c/$courseId/p/$pageUid" params={{ courseId: course.id, pageUid: prev.uid }} rel="prev">
+            <span className="pager__dir">
+              <Icon name="left" size={14} /> Previous
+            </span>
+            <span className="pager__title">{prev.title}</span>
+          </Link>
+        )}
+        {next && (
+          <Link
+            to="/c/$courseId/p/$pageUid"
+            params={{ courseId: course.id, pageUid: next.uid }}
+            className="pager__next"
+            rel="next"
+          >
+            <span className="pager__dir">
+              Next <Icon name="right" size={14} />
+            </span>
+            <span className="pager__title">{next.title}</span>
+          </Link>
+        )}
+      </nav>
+      <p className="kbd-hint">
+        <kbd>p</kbd> previous · <kbd>n</kbd> next
+      </p>
+    </>
   );
 }

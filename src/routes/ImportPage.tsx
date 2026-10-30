@@ -1,8 +1,10 @@
 import { useCallback, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { UnsupportedArchiveError, type ImportProgress } from "@/import/pipeline";
 import { runImport } from "@/import/run-import";
+import { evictCourse } from "./useCourse";
 import type { CourseBundle } from "@/content/schema";
+import { Icon } from "@/ui/icons";
 
 type Phase =
   | { kind: "idle" }
@@ -24,6 +26,8 @@ export function ImportPage() {
         const bundle = await runImport(file, (progress) =>
           setPhase({ kind: "working", progress }),
         );
+        // A re-import replaces the course; drop anything cached from the old copy.
+        evictCourse(bundle.course.id);
 
         // Go straight to the course when there is nothing worth reporting.
         if (bundle.warnings.length === 0) {
@@ -53,13 +57,13 @@ export function ImportPage() {
   };
 
   return (
-    <div className="page">
-      <h1>Import a course</h1>
+    <div className="page page--narrow">
+      <p className="eyebrow">Import</p>
+      <h1>Add a course</h1>
       <p className="lede">
-        On an MIT OpenCourseWare course page, choose <em>Download Course</em>, then drop the{" "}
-        <code>.zip</code> here. It is stored on this machine and never uploaded. Videos aren't
-        included in OCW archives, but lecture videos still play — the archive carries their
-        YouTube ids.
+        On any course at ocw.mit.edu, choose <em>Download course</em>, then drop the <code>.zip</code>{" "}
+        here. It is stored on this machine and never uploaded. Videos are not in OCW archives, but
+        lectures still play: the archive carries each video’s YouTube id.
       </p>
 
       {phase.kind === "working" ? (
@@ -76,9 +80,9 @@ export function ImportPage() {
           onDrop={onDrop}
         >
           <button className="btn" type="button" onClick={() => inputRef.current?.click()}>
-            Choose a .zip
+            <Icon name="upload" /> Choose a .zip
           </button>
-          <p className="dropzone__hint">or drag one here</p>
+          <p className="dropzone__hint">or drag one here. Re-importing a course updates it and keeps your progress.</p>
           <input
             ref={inputRef}
             type="file"
@@ -93,7 +97,7 @@ export function ImportPage() {
       )}
 
       {phase.kind === "failed" && (
-        <div className="notice notice--error" style={{ marginTop: "1.5rem" }} role="alert">
+        <div className="notice notice--error section" role="alert">
           <h2>{phase.message}</h2>
           <p style={{ margin: 0 }}>{phase.detail}</p>
         </div>
@@ -109,7 +113,7 @@ function Working({ progress }: { progress: ImportProgress }) {
 
   return (
     <div className="dropzone" aria-live="polite">
-      <p style={{ margin: 0 }}>{progress.step}…</p>
+      <p style={{ margin: 0, fontWeight: 600 }}>{progress.step}…</p>
       <div className="progressbar">
         <span style={{ width: `${percent}%` }} />
       </div>
@@ -120,11 +124,16 @@ function Working({ progress }: { progress: ImportProgress }) {
 /** Imports that dropped something say so, rather than failing quietly. */
 function Summary({ bundle }: { bundle: CourseBundle }) {
   return (
-    <div className="notice" style={{ marginTop: "1.5rem" }}>
+    <div className="notice section">
       <h2>Imported {bundle.course.title}</h2>
       <p style={{ margin: 0 }}>
         {bundle.nodes.length} items, {bundle.skills.length} skills, {bundle.exercises.length}{" "}
         questions. Some things needed attention:
+      </p>
+      <p style={{ margin: "0.6rem 0" }}>
+        <Link to="/c/$courseId" params={{ courseId: bundle.course.id }} className="btn">
+          Open the course
+        </Link>
       </p>
       <ul>
         {bundle.warnings.slice(0, 8).map((warning) => (

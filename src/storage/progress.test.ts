@@ -17,6 +17,7 @@ function doc(course: Partial<CourseProgress> & { updatedAt: string }): ProgressD
   return {
     schema: PROGRESS_SCHEMA,
     updatedAt: course.updatedAt,
+    activity: {},
     courses: {
       algebra: {
         title: "Algebra",
@@ -41,6 +42,22 @@ describe("progress file", () => {
       ProgressFormatError,
     );
     expect(() => parseProgress("not json")).toThrow(ProgressFormatError);
+  });
+});
+
+describe("activity", () => {
+  it("is optional, so progress files written before it existed still load", () => {
+    const legacy = JSON.stringify({ schema: PROGRESS_SCHEMA, updatedAt: at(1), courses: {} });
+    expect(parseProgress(legacy).activity).toEqual({});
+  });
+
+  it("merges per day without double counting", () => {
+    const a = { ...emptyProgress(new Date(at(1))), activity: { "2026-01-02": { reviews: 3, completed: 1 } } };
+    const b = { ...emptyProgress(new Date(at(2))), activity: { "2026-01-02": { reviews: 2, completed: 4 }, "2026-01-03": { reviews: 1, completed: 0 } } };
+    expect(mergeProgress(a, b).activity).toEqual({
+      "2026-01-02": { reviews: 3, completed: 4 },
+      "2026-01-03": { reviews: 1, completed: 0 },
+    });
   });
 });
 
@@ -116,5 +133,5 @@ describe("mergeProgress", () => {
 
 /** Re-wrap a merged course so it can be fed back in, to check merge is idempotent. */
 function merged3(course: CourseProgress): ProgressDoc {
-  return { schema: PROGRESS_SCHEMA, updatedAt: course.updatedAt, courses: { algebra: course } };
+  return { schema: PROGRESS_SCHEMA, updatedAt: course.updatedAt, courses: { algebra: course }, activity: {} };
 }

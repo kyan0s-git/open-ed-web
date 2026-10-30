@@ -10,3 +10,6 @@ fixtures/uids.json
 playwright-report/
 test-results/
 shot-*.png
+
+# Copied from node_modules by scripts/vendor.mjs
+public/vendor/

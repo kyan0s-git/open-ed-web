@@ -38,12 +38,13 @@ export function levelLabel(level: MasteryLevel): string {
 }
 
 /**
- * Course mastery as a single percentage: the mean level across every skill, including
- * those never started, so the number reflects the whole course rather than only the
- * part already touched.
+ * Course mastery as a single percentage: the mean level across every skill in the
+ * course, counting those never started as zero, so the number describes the whole
+ * course rather than only the part already touched.
  */
-export function courseMastery(levels: MasteryLevel[]): number {
-  if (levels.length === 0) return 0;
-  const total = levels.reduce<number>((sum, level) => sum + level, 0);
-  return Math.round((total / (levels.length * 4)) * 100);
+export function courseMastery(levels: MasteryLevel[], totalSkills: number): number {
+  const total = Math.max(totalSkills, levels.length);
+  if (total === 0) return 0;
+  const sum = levels.reduce<number>((acc, level) => acc + level, 0);
+  return Math.round((sum / (total * 4)) * 100);
 }

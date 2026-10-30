@@ -21,6 +21,12 @@ const rootRoute = createRootRoute({ component: RootLayout });
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
+  component: lazyRouteComponent(() => import("./routes/DashboardPage"), "DashboardPage"),
+});
+
+const coursesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/courses",
   component: lazyRouteComponent(() => import("./routes/LibraryPage"), "LibraryPage"),
 });
 
@@ -56,6 +62,7 @@ const settingsRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  coursesRoute,
   importRoute,
   courseRoute,
   pageRoute,
@@ -63,7 +70,13 @@ const routeTree = rootRoute.addChildren([
   settingsRoute,
 ]);
 
-export const router = createRouter({ routeTree, defaultPreload: "intent" });
+export const router = createRouter({
+  routeTree,
+  basepath: import.meta.env.BASE_URL,
+  defaultPreload: "intent",
+  // Long course pages: start each one at the top, restore position on back/forward.
+  scrollRestoration: true,
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

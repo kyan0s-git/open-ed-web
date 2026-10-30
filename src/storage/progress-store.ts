@@ -108,8 +108,13 @@ export class ProgressStore {
     return serializeProgress(this.#doc);
   }
 
+  /**
+   * Save no later than FLUSH_DELAY_MS after the first unsaved change. Restarting the
+   * wait on every change would let steady browsing postpone the save indefinitely, and
+   * then a reload or closed tab would drop all of it.
+   */
   #scheduleFlush(): void {
-    if (this.#timer) clearTimeout(this.#timer);
+    if (this.#timer) return;
     this.#timer = setTimeout(() => void this.flush(), FLUSH_DELAY_MS);
   }
 
