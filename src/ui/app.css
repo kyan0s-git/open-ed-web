@@ -1873,3 +1873,16 @@ mark {
   font-size: var(--step-1);
   text-align: left;
 }
+
+/* Update waiting to be installed (desktop) */
+.updatebar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 1rem;
+  background: var(--teal-wash);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--step--1);
+}

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Resource } from "./schema";
 import { assetUrl } from "./assets";
 import { guessMime } from "./maps";
+import { desktopVideoBase } from "@/desktop";
 import { Icon } from "@/ui/icons";
 import { PdfViewer } from "./PdfViewer";
 
@@ -59,12 +60,7 @@ function VideoView({
     <div>
       {playing ? (
         <div className="video">
-          <iframe
-            src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&cc_load_policy=1`}
-            title={resource.title}
-            allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen"
-            allowFullScreen
-          />
+          <VideoFrame id={id} title={resource.title} />
         </div>
       ) : (
         // A facade until clicked: the YouTube player is a lot of script for a video
@@ -207,6 +203,41 @@ function useAssetUrl(courseId: string, zipPath: string | null, mime?: string): s
 function fileName(resource: Resource): string {
   const base = resource.zipPath?.slice(resource.zipPath.lastIndexOf("/") + 1) ?? resource.title;
   return base.replace(/^[0-9a-f]{32}_/, "");
+}
+
+/**
+ * The YouTube player. YouTube refuses embeds without a referrer (error 153), so the
+ * referrer policy is explicit, and in the desktop app, whose pages have no web origin,
+ * the player is hosted by a local page that does (src-tauri/src/video.rs).
+ */
+function VideoFrame({ id, title }: { id: string; title: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    void desktopVideoBase().then((base) => {
+      if (!live) return;
+      const origin = /^https?:$/.test(location.protocol) ? `&origin=${encodeURIComponent(location.origin)}` : "";
+      setSrc(
+        base
+          ? `${base}/youtube?v=${id}`
+          : `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&cc_load_policy=1${origin}`,
+      );
+    });
+    return () => {
+      live = false;
+    };
+  }, [id]);
+
+  if (!src) return null;
+  return (
+    <iframe
+      src={src}
+      title={title}
+      allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen"
+      allowFullScreen
+      referrerPolicy="strict-origin-when-cross-origin"
+    />
+  );
 }
 
 export function formatBytes(bytes: number): string {

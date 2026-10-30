@@ -20,11 +20,6 @@
       "database_id": "REPLACE_WITH_YOUR_DATABASE_ID"
     }
   ],
-  // Optional: store course archives so other devices can download them. R2 has to be
-  // enabled on the account first (dashboard → R2). Then:
-  //   npx wrangler@4 r2 bucket create open-ed-web-courses
-  // and uncomment this block.
-  // "r2_buckets": [{ "binding": "BLOBS", "bucket_name": "open-ed-web-courses" }],
   "vars": {
     "SYNC_ALLOWED_ORIGINS": "*"
   }

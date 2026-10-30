@@ -12,7 +12,9 @@ import { formatBytes } from "@/content/ResourceView";
 import { evictCourse } from "./useCourse";
 import { resetSearch } from "@/search/client";
 import { SyncSettings } from "@/sync/SyncSettings";
-import { ServerCopyActions } from "@/sync/CourseTransfer";
+import { LibrarySettingsPanel } from "@/library/LibraryUI";
+import { UpdateSettings } from "@/updates/UpdateUI";
+import { readSyncConfig } from "@/sync/config";
 
 const THEMES: { value: ThemePreference; label: string; icon: IconName }[] = [
   { value: "system", label: "System", icon: "system" },
@@ -39,8 +41,18 @@ export function SettingsPage() {
 
   const importFile = async (file: File) => {
     try {
-      await progressStore.importFrom(await file.text());
-      setMessage("Progress merged. Where both copies had an entry, the newer one was kept.");
+      const merged = await progressStore.importFrom(await file.text());
+      // The file carries the course library too: fetch the courses it lists that this
+      // device does not have, so moving to a new device brings the courses along.
+      const library = await import("@/library/library");
+      const missing = (await library.missingCourses()).length;
+      void library.autoDownload();
+      const courses = Object.values(merged.library).filter((entry) => !entry.removed).length;
+      setMessage(
+        `Progress merged; where both copies had an entry, the newer one was kept. Your library has ${courses} ${
+          courses === 1 ? "course" : "courses"
+        }${missing > 0 ? `, ${missing} not on this device yet. ${library.librarySettings().autoDownload ? "They are downloading now (see Courses)." : "Download them from the Courses page."}` : "."}`,
+      );
     } catch (error) {
       setMessage((error as Error).message);
     }
@@ -61,8 +73,14 @@ export function SettingsPage() {
     }
   };
 
-  const remove = async (course: Course) => {
-    if (!confirm(`Remove ${course.title} from this device? Your progress for it is kept, so re-importing restores it.`)) return;
+  const remove = async (course: Course, everywhere: boolean) => {
+    const question = everywhere
+      ? `Remove ${course.title} from your library? It is deleted here, and your other devices stop downloading it (copies already on them stay). Your progress for it is kept.`
+      : `Remove ${course.title} from this device? It stays in your library, so you can download it again from the Courses page. Your progress for it is kept.`;
+    if (!confirm(question)) return;
+    const library = await import("@/library/library");
+    if (everywhere) await library.removeFromLibrary(course.id);
+    else library.removedOnThisDevice(course.id);
     evictCourse(course.id);
     await releaseCourse(course.id);
     await deleteCourse(course.id);
@@ -92,7 +110,8 @@ export function SettingsPage() {
       <section className="section stack">
         <h2 style={{ margin: 0 }}>Your progress</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Everything you have read and reviewed lives in one <code>progress.json</code> file —{" "}
+          Everything you have read and reviewed, and the list of courses you have, lives in one{" "}
+          <code>progress.json</code> file —{" "}
           {courseCount === 1 ? "1 course" : `${courseCount} courses`} so far. It is plain, readable JSON:
           export it to back it up or move it to another machine, keep it in a synced folder, or turn on sync
           below. There is no account.
@@ -137,6 +156,8 @@ export function SettingsPage() {
 
       <SyncSettings />
 
+      <LibrarySettingsPanel syncing={readSyncConfig() !== null} />
+
       <section className="section stack">
         <h2 style={{ margin: 0 }}>Stored courses</h2>
         {storage && (
@@ -157,9 +178,11 @@ export function SettingsPage() {
                   <span className="muted"> · {course.courseNumber}</span>
                 </span>
                 <span className="row" style={{ gap: "0.5rem" }}>
-                  <ServerCopyActions course={course} />
-                  <button className="btn btn--quiet" type="button" onClick={() => void remove(course)}>
-                    Remove from device
+                  <button className="btn btn--quiet" type="button" onClick={() => void remove(course, false)}>
+                    Remove from this device
+                  </button>
+                  <button className="btn btn--quiet" type="button" onClick={() => void remove(course, true)}>
+                    Remove everywhere
                   </button>
                 </span>
               </li>
@@ -167,6 +190,7 @@ export function SettingsPage() {
           </ul>
         )}
       </section>
+      <UpdateSettings />
     </div>
   );
 }

@@ -25,8 +25,9 @@ encrypted, so the server only ever holds data it cannot read.
   Press `/` anywhere.
 - **Sync** between devices with a link or QR code. There are no accounts, and progress is
   encrypted on the device before it leaves it.
-- **Course storage** (optional): upload a course once and download it on your other
-  devices. Uploads are chunked, resumable and end-to-end encrypted.
+- **A course library** that follows you: import a course on one device and your others
+  download it straight from MIT by themselves. The server only keeps the list.
+- **Automatic updates** for the desktop app, signed and verified.
 - **Desktop app** for Windows, macOS and Linux, from the same code.
 - **Light and dark** themes.
 
@@ -75,6 +76,8 @@ to run them against another deployment, such as `wrangler dev` or a preview URL.
 | `src/` | The web app (Vite, React 19, TanStack Router) |
 | `src/import/` | Reads OCW archives into courses |
 | `src/sync/` | Client side of sync: encryption, the sync loop, pairing UI |
+| `src/library/` | The course library, and downloading courses from OCW |
+| `src/updates/` | Desktop auto-update |
 | `server/` | The sync API, written once against web-standard `Request`/`Response` |
 | `server/cloudflare.ts`, `api/sync.ts`, `server/node.ts` | Host adapters: Cloudflare Workers, Vercel, Node |
 | `src-tauri/` | The desktop shell (Tauri 2) |

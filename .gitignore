@@ -19,3 +19,4 @@ src-tauri/target/
 src-tauri/gen/
 .wrangler/
 .vercel/
+src-tauri/tauri.updater.conf.json

@@ -6,10 +6,11 @@ open-ed-web has two parts:
 - **The sync API**: a small service that stores one encrypted blob per sync vault. It is
   needed only for syncing between devices. Without it, the app works fully on each device
   on its own.
-- **Course storage** (optional, off unless you turn it on): lets devices upload the
-  courses they import, so other devices can download them instead of importing the `.zip`
-  again. It needs a blob store: R2 on Cloudflare, Vercel Blob on Vercel, or the disk on
-  your own server. See [Course storage](#course-storage-optional).
+
+The server never stores courses. Each vault's encrypted progress file includes the
+learner's course library: a list of courses and where each can be downloaded. Devices
+fetch the archives themselves, straight from ocw.mit.edu, so a server with sync costs
+kilobytes per user.
 
 The API is written once (`server/core.ts`) against standard `Request`/`Response`
 objects. Each host gets a thin adapter, and they all serve the web app and the API from
@@ -134,43 +135,6 @@ A static-only site can still sync through a sync API hosted elsewhere. Build wit
 `VITE_SYNC_SERVER=https://your-sync-api.example npm run build` to make that server the
 default.
 
-## Course storage (optional)
-
-With course storage on, a device can upload a course it imported, and the others in the
-same sync vault can download it from **Courses → On your sync server**. Users still choose
-per device, in **Settings → Sync across devices → Courses on the server**; the server
-only makes it possible.
-
-Courses travel in chunks (4 MB by default), so any host's request limit is fine. They
-are encrypted on the device like progress, and named by a keyed hash of their contents.
-An interrupted upload resumes, and a course already on the server is not sent again.
-Each vault has a quota (5 GB by default). For scale, 8.04 Quantum Physics I is 30 MB, and
-large courses run to a few hundred MB.
-
-**Cloudflare:** enable R2 in the dashboard (it asks for a payment method, but the first
-10 GB a month are free), then create a bucket and bind it as `BLOBS` by uncommenting the
-`r2_buckets` block in `wrangler.jsonc`:
-
-```sh
-npx wrangler@4 r2 bucket create open-ed-web-courses
-npm run deploy:cloudflare
-```
-
-**Vercel:** under **Storage**, create a **Blob** store and connect it to the project.
-Vercel sets `BLOB_READ_WRITE_TOKEN`, and the function picks it up on the next deploy.
-Chunks are stored as private blobs. Vercel's 4.5 MB body limit caps chunks at 4 MB there.
-
-**Docker or Node:** set `COURSE_STORAGE=on`. Courses go in `DATA_DIR/courses`:
-
-```sh
-docker run -d -p 8787:8787 -v open-ed-web-data:/data -e COURSE_STORAGE=on open-ed-web
-```
-
-Behind nginx, raise its 1 MB default: `client_max_body_size 8m;`. Caddy has no limit.
-
-To turn it off again on any host, set `COURSE_STORAGE=off`. Courses already stored stay
-in the bucket until you delete them, and devices stop offering uploads and downloads.
-
 ## Configuration
 
 These environment variables work the same way on every host. On Cloudflare they go in
@@ -181,12 +145,9 @@ Docker as `-e NAME=value`.
 | --- | --- | --- |
 | `SYNC_ALLOWED_ORIGINS` | `*` | Comma-separated origins that may call the API from a browser. Requests authenticate with a token, not cookies, so `*` is safe. To narrow it, include your site and the desktop app's origins: `tauri://localhost` (macOS, Linux) and `http://tauri.localhost` (Windows). |
 | `SYNC_MAX_BYTES` | `1048576` | Largest accepted vault, in bytes. A heavily used progress file compresses to tens of KB. |
-| `COURSE_STORAGE` | off on Node, on when a bucket is bound elsewhere | `on` enables course storage on the Node server; `off` disables it on any host. |
-| `COURSE_QUOTA_BYTES` | `5368709120` (5 GB) | Course storage allowed per vault. |
-| `COURSE_CHUNK_BYTES` | `4194304` (4 MB) | Size of each uploaded piece. Lower it behind proxies with small body limits; Vercel caps it at 4 MB. |
 | `SYNC_KEY_PREFIX` | `openedweb:vault:` | Redis key prefix, so a database can be shared. |
 | `PORT`, `HOST` | `8787`, `0.0.0.0` | Node server only. |
-| `DATA_DIR` | `./data` (`/data` in Docker) | Node server only. Where vaults (and, with course storage, courses) go. `memory` keeps them in RAM. |
+| `DATA_DIR` | `./data` (`/data` in Docker) | Node server only. Where vault files go. `memory` keeps them in RAM. |
 | `STATIC_DIR` | `./dist` | Node server only. Set it to an empty value to serve only the API. |
 
 Build-time variables, for the web app and desktop app:
@@ -198,9 +159,7 @@ Build-time variables, for the web app and desktop app:
 ## What your server stores, and what it costs
 
 Each vault is one row or file: a random id, a hash of its access token, a version number,
-a timestamp, and the encrypted progress, typically 5–50 KB. With course storage on, it
-also has encrypted chunks of the courses its devices uploaded. Which courses they are is
-recorded only inside the encrypted progress, so the server cannot tell. There are no accounts, emails
+a timestamp, and the encrypted progress, typically 5–50 KB. There are no accounts, emails
 or IP logs in the app's own storage. Your host may keep request logs of its own. See
 [sync.md](sync.md) for the full design.
 
@@ -222,5 +181,4 @@ two simulated devices through your server. They create one sync vault on your se
 Delete it afterwards from **Settings → Stop syncing** if you like.
 
 `GET /api/v1/health` answers `{"ok":true,"service":"open-ed-web-sync",…}` when the API
-is up and configured. Its `courses` field is `null` without course storage, or shows the
-chunk size and quota with it.
+is up and configured.

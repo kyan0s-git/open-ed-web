@@ -558,9 +558,22 @@ function toCourse(
     license: data.license,
     imagePath: data.image_src ? resolveArchivePath(data.image_src, archive, base) : null,
     sitePath: data.site_url_path,
+    downloadUrl: ocwDownloadUrl(data),
     sequence,
     importedAt: options.importedAt ?? new Date().toISOString(),
   };
+}
+
+/**
+ * Where OCW publishes this course's archive: https://ocw.mit.edu/<site path>/<short id>.zip.
+ * OCW serves these with open CORS and byte ranges, so any device can fetch a course
+ * straight from MIT; the sync library stores this URL instead of the archive.
+ */
+export function ocwDownloadUrl(data: Pick<OcwCourseData, "site_url_path" | "site_short_id">): string | undefined {
+  const path = data.site_url_path?.trim().replace(/^\/+|\/+$/g, "");
+  const shortId = data.site_short_id?.trim();
+  if (!path || !shortId || !/^courses\/[\w.-]+$/.test(path) || !/^[\w.-]+$/.test(shortId)) return undefined;
+  return `https://ocw.mit.edu/${path}/${shortId}.zip`;
 }
 
 /** OCW topics are hierarchy paths; the leaf is the useful label. */

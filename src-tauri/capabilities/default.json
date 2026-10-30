@@ -1,7 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the main window may do: open links in the system browser. Saving files goes through the app's own save_file command.",
-  "windows": ["main"],
-  "permissions": ["core:default", "opener:allow-open-url"]
+  "description": "What the main window may do: open links in the system browser, check for and install signed updates, and restart into them. Saving files and hosting video embeds go through the app's own commands.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "opener:allow-open-url",
+    "updater:default",
+    "process:allow-restart"
+  ]
 }

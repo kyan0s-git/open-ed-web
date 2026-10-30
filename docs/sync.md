@@ -1,9 +1,8 @@
 # How sync works
 
 Sync keeps `progress.json` the same on every device you connect. Course archives are not
-synced by default: they are large, and you can download them again from OCW at any time.
-Each device imports the courses it needs, or, where the server offers course storage and
-you turn it on, downloads them from the server (see [Stored courses](#stored-courses)). Because a course is identified by OCW's own id, its progress
+synced: they are large, and you can download them again from OCW at any time. Each device
+imports the courses it needs. Because a course is identified by OCW's own id, its progress
 finds it on every device.
 
 ## What the server knows
@@ -67,30 +66,23 @@ them at a new server by turning sync off and on again.
 - A vault is limited to 1 MB by default. Progress for several heavily used courses
   compresses to well under 100 KB.
 
-## Stored courses
+## The course library
 
-Course storage is opt-in twice over: the server operator enables it, and each device
-turns it on in Settings.
+The progress file also carries the learner's **library**: for each course, its title,
+number, size, and the address its archive can be downloaded from. For OCW courses, that
+is `https://ocw.mit.edu/<site_url_path>/<site_short_id>.zip`, built from fields every OCW
+archive carries. OCW serves these with `Access-Control-Allow-Origin: *` and byte ranges, so
+browsers and the desktop app download directly from MIT, resuming interrupted downloads
+with `Range` and `If-Range`.
 
-An archive is cut into chunks of the size the server asks for (4 MB by default). From the
-vault secret, devices also derive a chunk-naming HMAC key and a chunk encryption key.
-Each chunk is named by `HMAC-SHA-256(plaintext)` and encrypted with AES-256-GCM, with the
-IV taken from that name and the vault id and chunk name as associated data. The
-encryption is deterministic on purpose: the same chunk always produces the same bytes
-under the same name, from any device in the vault. That makes it possible to:
+So the server stores the list, encrypted with everything else, and never a course.
+Library entries merge like other records (newest wins). Removing a course from the
+library records the removal, so it reaches every device instead of being undone by the
+next merge. Removing it from one device only is remembered on that device, so automatic
+downloads leave it alone.
 
-- ask the server which chunks are missing and upload only those, so an interrupted upload
-  resumes, and a course another device already stored costs one request;
-- re-send only the changed chunks when a newer download of a course replaces an old one.
-
-The cost is that the server can see when two chunks are identical, which it could also
-infer from their names. Downloads check every chunk's tag and recompute its name, so a
-damaged or substituted chunk is refused.
-
-The list of stored courses (title, size, chunk names) lives in the progress file's
-`library`, so it is encrypted and merged like everything else. Removing a course from the
-server records the removal there, so it reaches every device instead of being undone by
-the next merge.
+After a download, the app checks the course's OCW id matches the library entry. If the
+address now holds a different course, it keeps the download but stops retrying.
 
 ## The API
 
@@ -98,15 +90,11 @@ Every host adapter implements the same small HTTP API (`server/core.ts`):
 
 | Request | Result |
 | --- | --- |
-| `GET /api/v1/health` | `{"ok":true,"service":"open-ed-web-sync","protocol":1,"maxBytes":…,"courses":{"chunkBytes":…,"quotaBytes":…}\|null}` |
+| `GET /api/v1/health` | `{"ok":true,"service":"open-ed-web-sync","protocol":1,"maxBytes":…}` |
 | `GET /api/v1/vaults/:id` | `200` with the blob and an `ETag`, `304` if unchanged, `404` if no such vault |
 | `PUT /api/v1/vaults/:id` + `If-None-Match: *` | Create. `201`, or `412` if it exists |
 | `PUT /api/v1/vaults/:id` + `If-Match: "<n>"` | Replace. `200` with the new `ETag`, or `412` if the vault moved on |
-| `DELETE /api/v1/vaults/:id` | `204`; also deletes the vault's stored chunks |
-| `POST /api/v1/vaults/:id/chunks/query` `{ids}` | `{missing, usedBytes, quotaBytes}` |
-| `PUT /api/v1/vaults/:id/chunks/:chunk` | `201`; `413` over the chunk size, `507` over the quota |
-| `GET /api/v1/vaults/:id/chunks/:chunk` | The chunk |
-| `POST /api/v1/vaults/:id/chunks/delete` `{ids}` | `204` |
+| `DELETE /api/v1/vaults/:id` | `204` |
 
 Vault requests need `Authorization: Bearer <token>`. The first `PUT` records the token's
 hash, and later requests with another token get `403`. CORS is open by default

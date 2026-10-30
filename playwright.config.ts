@@ -3,7 +3,6 @@ import { defineConfig } from "@playwright/test";
 /**
  * By default the tests start the self-hosted server (web app + sync API) on port 4173;
  * `npm run e2e` builds both first. Vaults are kept in memory, so every run starts clean.
- * Course storage is on, with tiny chunks so the small test course spans several.
  *
  * Set E2E_BASE_URL to run the same tests against another deployment instead, such as
  * `wrangler dev` or a preview URL, to check that host's adapter end to end.
@@ -25,7 +24,7 @@ export default defineConfig({
     ? undefined
     : {
         command: "node server-dist/node.mjs",
-        env: { PORT: "4173", HOST: "127.0.0.1", DATA_DIR: "memory", COURSE_STORAGE: "on", COURSE_CHUNK_BYTES: "4096" },
+        env: { PORT: "4173", HOST: "127.0.0.1", DATA_DIR: "memory" },
         url: "http://localhost:4173",
         reuseExistingServer: true,
         timeout: 120_000,

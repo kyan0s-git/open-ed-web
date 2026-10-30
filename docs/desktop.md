@@ -25,6 +25,31 @@ described below. On first launch:
   **System Settings → Privacy & Security** after the first attempt and choose **Open Anyway**.
 - **Linux AppImage**: make it executable first (`chmod +x open-ed-web_*.AppImage`).
 
+On Linux, video playback uses GStreamer. The `.deb` installs the codecs it needs, and the
+AppImage bundles them. With the `.rpm`, install `gstreamer1-plugins-good`,
+`gstreamer1-plugins-bad-free` and your distribution's GStreamer libav plugin if videos say
+your browser cannot play them.
+
+## Updates
+
+When a release is set up for it (see [Automatic updates](#automatic-updates) below), the
+app checks for a new version shortly after it starts and every few hours. It downloads
+the update in the background, checks its signature, and shows **Restart to update**. Your
+progress is saved before it restarts. **Settings → Updates** shows the version you have,
+has **Check for updates**, and lets you turn off automatic downloads, in which case the
+app asks first.
+
+Updates apply to the Windows installers, the macOS app, and the Linux AppImage. The
+`.deb` and `.rpm` packages are updated by installing the new package.
+
+## Moving to a new computer
+
+Your `progress.json` holds your progress and your course library: the list of courses
+you have, with where each can be downloaded. To move without sync, use **Settings →
+Export progress.json** on the old computer and **Import and merge** on the new one. The
+new computer then downloads your OCW courses from ocw.mit.edu by itself. With sync on,
+connecting the new computer does the same.
+
 ## Syncing with your other devices
 
 The desktop app has no web address of its own, so it needs to be told where your sync
@@ -121,8 +146,34 @@ Under **Settings → Secrets and variables → Actions**:
 | Name | Kind | Effect |
 | --- | --- | --- |
 | `SYNC_SERVER_URL` | Variable | Default sync server in the desktop app. |
+| `TAURI_UPDATER_PUBKEY` | Variable | Turns on automatic updates; the public half of your update key. |
+| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Secrets | The private half and its password, used to sign each release's updates. |
 | `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY` | Secrets | Sign the macOS app with a Developer ID certificate (base64 `.p12`). |
 | `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Secrets | Notarize it, so Gatekeeper opens it without warnings. `APPLE_PASSWORD` is an app-specific password. |
+
+### Automatic updates
+
+Updates are signed with a key only you hold, and the app installs nothing that key did
+not sign. To turn them on, create the key once:
+
+```sh
+npx tauri signer generate -w ~/.tauri/open-ed-web.key
+```
+
+Then, under **Settings → Secrets and variables → Actions**, add:
+
+- the contents of `~/.tauri/open-ed-web.key` as the secret `TAURI_SIGNING_PRIVATE_KEY`,
+  and its password as `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`;
+- the contents of `~/.tauri/open-ed-web.key.pub` as the variable `TAURI_UPDATER_PUBKEY`.
+
+From the next release on, the workflow signs every installer, publishes `latest.json`
+with the release, and builds the app to check
+`https://github.com/<owner>/<repo>/releases/latest/download/latest.json`. Keep the
+private key backed up: if it is lost, installed apps cannot verify updates signed with a
+new one, and their users must reinstall once. Releases made without the key build apps
+that do not check for updates at all. The same applies to forks and local builds.
+
+### Code signing
 
 Without the Apple secrets, the macOS app is ad-hoc signed. It runs once the user allows it,
 as described under Installing. Windows code signing needs a certificate from a commercial
@@ -131,11 +182,11 @@ covers the options.
 
 ## Known limitations
 
-- **Automatic updates** are not set up. New versions are installed from the Releases page.
-  Tauri's updater plugin can be added later; it needs a signing key pair.
-- **YouTube videos** may refuse to play inside the app's window, because YouTube restricts
-  embeds on pages without a web address. Use **Watch on YouTube**, which opens your
-  browser.
+- **YouTube** refuses embeds from pages without a web address (error 153), and the app's
+  pages have none on macOS and Linux. So the app serves a one-page video host on
+  `127.0.0.1` (`src-tauri/src/video.rs`) that embeds the player from an ordinary web
+  origin. It listens only on the local machine and only serves that page. If YouTube still
+  will not play a video, **YouTube** opens it in your browser.
 - **Choosing a file for progress.json** ("Keep it in a file I choose") is a Chromium
   feature, so it appears only where the engine supports it, which in practice means the
   Windows app. **Export** works everywhere.

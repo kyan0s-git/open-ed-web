@@ -9,6 +9,8 @@
 #
 # Optional configuration (Settings → Secrets and variables → Actions):
 #   variable SYNC_SERVER_URL   default sync server baked into the desktop app
+#   variable TAURI_UPDATER_PUBKEY, secrets TAURI_SIGNING_PRIVATE_KEY and
+#            TAURI_SIGNING_PRIVATE_KEY_PASSWORD     automatic updates (docs/desktop.md)
 #   secrets  APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
 #            APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID       macOS signing + notarization
 #   Without them the macOS app is ad-hoc signed and the Windows installer is unsigned;
@@ -167,13 +169,41 @@ jobs:
             done
           fi
 
+      # Automatic updates, when the repository has an update key. The app checks this
+      # repository's latest release for latest.json, and only installs builds signed
+      # with the matching private key. Without a key, builds simply ship without updates.
+      - name: Updater configuration (if configured)
+        id: updater
+        shell: bash
+        env:
+          PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
+          PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$PUBKEY" ] && [ -n "$PRIVATE_KEY" ]; then
+            node -e '
+              const [pubkey, repo] = process.argv.slice(1);
+              const config = {
+                bundle: { createUpdaterArtifacts: true },
+                plugins: { updater: { pubkey, endpoints: [`https://github.com/${repo}/releases/latest/download/latest.json`] } },
+              };
+              require("fs").writeFileSync("src-tauri/tauri.updater.conf.json", JSON.stringify(config));
+            ' "$PUBKEY" "$GITHUB_REPOSITORY"
+            {
+              echo "TAURI_SIGNING_PRIVATE_KEY=$PRIVATE_KEY"
+              echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$PRIVATE_KEY_PASSWORD"
+              echo "VITE_UPDATES=1"
+            } >> "$GITHUB_ENV"
+            echo "args=--config src-tauri/tauri.updater.conf.json" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ github.token }}
           VITE_SYNC_SERVER: ${{ vars.SYNC_SERVER_URL }}
         with:
           releaseId: ${{ needs.prepare.outputs.release_id }}
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} ${{ steps.updater.outputs.args }}
 
   publish:
     name: Publish release

@@ -74,22 +74,21 @@ export const DayActivity = z.object({
 export type DayActivity = z.infer<typeof DayActivity>;
 
 /**
- * A course archive stored on the sync server, so other devices can download it instead
- * of importing the .zip again. Kept in the progress file because that is what sync
- * already carries, encrypted: the server stores the chunks but never sees which courses
- * they are. Removing a course from the server leaves a `removed` record rather than
- * deleting the entry, so the removal reaches every device instead of being undone by
- * the next merge.
+ * A course in the learner's library: the list every device works from. It holds where
+ * each course can be downloaded (for OCW courses, MIT's own URL), never the archive, so
+ * the sync server stores only this list, encrypted with the rest of the progress file.
+ * Devices fetch the archives themselves. Removing a course for every device leaves a
+ * `removed` record rather than deleting the entry, so the removal reaches every device
+ * instead of being undone by the next merge.
  */
 export const LibraryEntry = z.object({
   title: z.string(),
   courseNumber: z.string().default(""),
-  bytes: z.number().int().nonnegative(),
-  /** Plaintext bytes per chunk; the last one may be shorter. */
-  chunkBytes: z.number().int().positive(),
-  /** Chunk ids, in order. */
-  chunks: z.array(z.string()),
-  uploadedAt: z.string(),
+  /** Where to download the archive; null for courses that came from elsewhere. */
+  sourceUrl: z.string().nullable().default(null),
+  /** Archive size when it was imported, for showing and for download limits. */
+  bytes: z.number().int().nonnegative().nullable().default(null),
+  addedAt: z.string(),
   removed: z.boolean().default(false),
   updatedAt: z.string(),
 });
@@ -107,7 +106,7 @@ export const ProgressDoc = z.object({
    * the default keeps older progress files valid without a migration.
    */
   activity: z.record(z.string(), DayActivity).default({}),
-  /** Courses stored on the sync server, by course id. Optional for the same reason. */
+  /** The course library, by course id. Optional for the same reason. */
   library: z.record(z.string(), LibraryEntry).default({}),
 });
 export type ProgressDoc = z.infer<typeof ProgressDoc>;

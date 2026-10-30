@@ -72,3 +72,16 @@ export function installDesktopHandlers(): void {
     true,
   );
 }
+
+let videoBase: Promise<string | null> | null = null;
+
+/**
+ * Where the desktop app hosts YouTube embeds (see src-tauri/src/video.rs), or null in a
+ * browser, where the page's own origin already gives YouTube the referrer it requires.
+ */
+export function desktopVideoBase(): Promise<string | null> {
+  const native = tauri();
+  if (!native) return Promise.resolve(null);
+  videoBase ??= native.invoke<string | null>("video_embed_base").catch(() => null);
+  return videoBase;
+}

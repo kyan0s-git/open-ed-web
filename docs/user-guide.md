@@ -14,10 +14,9 @@ a fresh copy.
 ## 2. Import it
 
 Open **Import** in the top bar and drop the `.zip` on the page, or choose it with the
-file picker. Importing takes a few seconds. The app keeps its own copy of the archive,
-in the browser's storage or the desktop app's data folder, and reads pages, PDFs and
-images straight from it. **You can delete the downloaded `.zip` afterwards**; the course
-stays. Nothing is uploaded anywhere unless you turn on course storage (section 7).
+file picker. Importing takes a few seconds. The archive is stored on your device as it
+is, and pages, PDFs and images are read straight from it whenever you open them. **You can
+delete the downloaded `.zip` afterwards**: the course stays. Nothing is uploaded anywhere.
 
 Importing the same course again (for example a newer download) updates it in place and
 keeps your progress.
@@ -92,29 +91,30 @@ devices. To stop, use **Stop syncing**: either just on this device, or delete th
 copy from the server for all devices. Progress on each device always stays. More detail
 is in [sync.md](sync.md).
 
-Course files are not synced unless you choose to store them on the server (below).
-Without that, import each course on each device where you want to read it. Progress for
-a course you have not imported yet waits until you do.
+### Your course library
 
-### Storing courses on the server
+Courses themselves are never uploaded. Instead, your progress file keeps a **library**: the
+list of courses you have imported on any device, with where each one can be downloaded.
+It syncs like the rest of your progress. When another device sees a course in the library
+that it does not have, it downloads it straight from ocw.mit.edu and imports it. A dropped
+connection resumes where it stopped.
 
-If your sync server has course storage turned on, **Settings → Sync across devices →
-Courses on the server** offers:
+**Settings → Course library** controls this on each device:
 
-- **Store courses on the sync server**: the switch for this device. It is off until you
-  turn it on.
-- **Upload courses I import on this device**: on by default once storage is on. Turn it
-  off to upload only the courses you pick, with **Upload to server** in the list of
-  stored courses.
-- **Download courses my other devices store**: off by default. Turn it on to have
-  courses appear on this device by themselves, up to a size you choose (100 MB to any
-  size). Larger ones wait for you.
+- **Download courses from my library automatically**: on by default. Turn it off to
+  download only what you choose, from **Courses → In your library, not on this device**.
+- **Download courses up to…**: 100 MB to any size (500 MB by default). Larger courses
+  wait for you to download them by hand.
 
-Courses your other devices stored, but this one does not have yet, appear under
-**Courses → On your sync server** with a **Download** button. Uploads go in 4 MB pieces
-and resume if interrupted; a course already on the server is not uploaded again. Courses
-are encrypted on your device like your progress. **Remove from server** deletes the
-server's copy for every device but keeps the copies already on devices.
+In **Settings → Stored courses**, **Remove from this device** deletes the course here but
+keeps it in your library: it is not downloaded again automatically, and you can download
+it again from the Courses page. **Remove everywhere** also takes it out of the library,
+so no device downloads it again. Copies already on other devices stay until you remove
+them there.
+
+Courses that did not come from OCW, or archives that do not say where they came from,
+are listed but cannot be downloaded. Import their `.zip` on each device. Progress for a
+course a device does not have yet waits until it does.
 
 ## 8. Install it
 

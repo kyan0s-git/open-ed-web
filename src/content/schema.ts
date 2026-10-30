@@ -38,6 +38,8 @@ export const Course = z.object({
   imagePath: z.string().nullable().default(null),
   /** Where the course was published, e.g. "courses/8-04-quantum-physics-i-spring-2016". */
   sitePath: z.string().optional(),
+  /** Where the course's archive can be downloaded again, when known (OCW courses). */
+  downloadUrl: z.string().optional(),
   /**
    * The order a learner works through the course: each page in sidebar order, followed
    * by the materials it links to. Previous/next navigation walks this.

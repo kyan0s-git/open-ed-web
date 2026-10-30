@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useDueCount } from "@/mastery/useProgress";
 import { Icon, type IconName } from "@/ui/icons";
+import { isDesktopApp } from "@/desktop";
 import {
   effectiveTheme,
   nextPreference,
@@ -15,6 +16,12 @@ const THEME_ICON: Record<ThemePreference, IconName> = {
   light: "sun",
   dark: "moon",
 };
+
+declare const __UPDATES__: boolean;
+
+// Only desktop builds that ship signed updates load any of the update code.
+const UpdateBanner = lazy(() => import("@/updates/UpdateUI").then((m) => ({ default: m.UpdateBanner })));
+const showUpdates = __UPDATES__ && isDesktopApp();
 
 export function RootLayout() {
   const due = useDueCount();
@@ -71,6 +78,12 @@ export function RootLayout() {
           </Link>
         </div>
       </header>
+
+      {showUpdates && (
+        <Suspense fallback={null}>
+          <UpdateBanner />
+        </Suspense>
+      )}
 
       <main id="content">
         <Outlet />
