@@ -86,6 +86,9 @@ function Overview({ loaded }: { loaded: LoadedCourse }) {
                 <Icon name="review" /> {due} due
               </Link>
             )}
+            <Link to="/search" search={{ course: course.id }} className="btn btn--quiet">
+              <Icon name="search" /> Search this course
+            </Link>
           </div>
         </div>
 

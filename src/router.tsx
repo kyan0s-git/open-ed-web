@@ -42,9 +42,19 @@ const courseRoute = createRoute({
   component: lazyRouteComponent(() => import("./routes/CoursePage"), "CoursePage"),
 });
 
+/** Optional: open a PDF at a page, and highlight words a search matched. */
+export interface ContentSearch {
+  page?: number;
+  q?: string;
+}
+
 const pageRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/c/$courseId/p/$pageUid",
+  validateSearch: (search: Record<string, unknown>): ContentSearch => ({
+    page: Number(search.page) > 0 ? Math.floor(Number(search.page)) : undefined,
+    q: typeof search.q === "string" && search.q ? search.q : undefined,
+  }),
   component: lazyRouteComponent(() => import("./routes/ContentPage"), "ContentPage"),
 });
 
@@ -52,6 +62,23 @@ const reviewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/review",
   component: lazyRouteComponent(() => import("./routes/ReviewPage"), "ReviewPage"),
+});
+
+export interface SearchPageSearch {
+  q?: string;
+  course?: string;
+  kind?: string;
+}
+
+const searchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/search",
+  validateSearch: (search: Record<string, unknown>): SearchPageSearch => ({
+    q: typeof search.q === "string" && search.q ? search.q : undefined,
+    course: typeof search.course === "string" && search.course ? search.course : undefined,
+    kind: typeof search.kind === "string" && search.kind ? search.kind : undefined,
+  }),
+  component: lazyRouteComponent(() => import("./routes/SearchPage"), "SearchPage"),
 });
 
 const settingsRoute = createRoute({
@@ -67,6 +94,7 @@ const routeTree = rootRoute.addChildren([
   courseRoute,
   pageRoute,
   reviewRoute,
+  searchRoute,
   settingsRoute,
 ]);
 

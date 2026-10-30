@@ -1,4 +1,5 @@
-import { Link, Outlet } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useDueCount } from "@/mastery/useProgress";
 import { Icon, type IconName } from "@/ui/icons";
 import {
@@ -19,6 +20,7 @@ export function RootLayout() {
   const due = useDueCount();
   const theme = useThemePreference();
   const next = nextPreference(theme);
+  useSearchShortcut();
 
   return (
     <div className="shell">
@@ -50,6 +52,11 @@ export function RootLayout() {
         </nav>
 
         <div className="topbar__actions">
+          <Link to="/search" className="searchlink" aria-label="Search" title="Search (press /)">
+            <Icon name="search" />
+            <span className="searchlink__label">Search</span>
+            <kbd className="searchlink__kbd">/</kbd>
+          </Link>
           <button
             type="button"
             className="iconbtn"
@@ -70,6 +77,31 @@ export function RootLayout() {
       </main>
     </div>
   );
+}
+
+/**
+ * "/" (or Ctrl/Cmd+K) opens search from anywhere, unless the learner is typing. From
+ * inside a course the search starts scoped to that course.
+ */
+function useSearchShortcut() {
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable]")) return;
+      const slash = event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey;
+      const commandK = event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey);
+      if (!slash && !commandK) return;
+
+      event.preventDefault();
+      const course = pathname.match(/\/c\/([^/]+)/)?.[1];
+      void navigate({ to: "/search", search: { course } });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navigate, pathname]);
 }
 
 function NavItem({

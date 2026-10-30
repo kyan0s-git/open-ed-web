@@ -12,11 +12,24 @@ import { PdfViewer } from "./PdfViewer";
  * shipped in OCW archives, so they play from YouTube using the id the archive carries;
  * the transcript, which is in the archive, opens locally.
  */
-export function ResourceView({ courseId, resource }: { courseId: string; resource: Resource }) {
-  if (resource.youtubeId) return <VideoView courseId={courseId} resource={resource} />;
+export function ResourceView({
+  courseId,
+  resource,
+  page,
+  highlight,
+}: {
+  courseId: string;
+  resource: Resource;
+  /** From a search: the page of the PDF (or the video's transcript) that matched. */
+  page?: number;
+  highlight?: string;
+}) {
+  if (resource.youtubeId) return <VideoView courseId={courseId} resource={resource} page={page} highlight={highlight} />;
 
   const mime = resource.mime ?? (resource.zipPath ? guessMime(resource.zipPath) : undefined);
-  if (resource.zipPath && mime === "application/pdf") return <PdfView courseId={courseId} resource={resource} />;
+  if (resource.zipPath && mime === "application/pdf") {
+    return <PdfView courseId={courseId} resource={resource} page={page} highlight={highlight} />;
+  }
   if (resource.zipPath && (resource.resourcetype === "Image" || mime?.startsWith("image/"))) {
     return <ImageView courseId={courseId} resource={resource} />;
   }
@@ -24,8 +37,20 @@ export function ResourceView({ courseId, resource }: { courseId: string; resourc
   return <p className="notice">This material has no file in the archive.</p>;
 }
 
-function VideoView({ courseId, resource }: { courseId: string; resource: Resource }) {
+function VideoView({
+  courseId,
+  resource,
+  page,
+  highlight,
+}: {
+  courseId: string;
+  resource: Resource;
+  page?: number;
+  highlight?: string;
+}) {
   const [playing, setPlaying] = useState(false);
+  // Arriving from a transcript search result opens the transcript at the match.
+  const [showTranscript, setShowTranscript] = useState(Boolean(page && resource.transcriptPath));
   const transcript = useAssetUrl(courseId, resource.transcriptPath, "application/pdf");
   const id = resource.youtubeId!;
 
@@ -54,9 +79,14 @@ function VideoView({ courseId, resource }: { courseId: string; resource: Resourc
 
       <div className="material-actions">
         {transcript && (
-          <a className="btn btn--quiet" href={transcript} target="_blank" rel="noopener noreferrer">
-            <Icon name="file" /> Transcript
-          </a>
+          <button
+            type="button"
+            className="btn btn--quiet"
+            aria-expanded={showTranscript}
+            onClick={() => setShowTranscript((value) => !value)}
+          >
+            <Icon name="file" /> {showTranscript ? "Hide transcript" : "Transcript"}
+          </button>
         )}
         {resource.archiveUrl && (
           <a className="btn btn--quiet" href={resource.archiveUrl} target="_blank" rel="noopener noreferrer">
@@ -72,11 +102,35 @@ function VideoView({ courseId, resource }: { courseId: string; resource: Resourc
           <Icon name="external" /> YouTube
         </a>
       </div>
+
+      {showTranscript && transcript && (
+        <div className="related">
+          <h2>Transcript</h2>
+          <PdfViewer
+            url={transcript}
+            title={`${resource.title} — transcript`}
+            storageKey={`${courseId}:${resource.uid}:transcript`}
+            downloadName={`${resource.title} transcript.pdf`}
+            initialPage={page}
+            highlight={highlight}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-function PdfView({ courseId, resource }: { courseId: string; resource: Resource }) {
+function PdfView({
+  courseId,
+  resource,
+  page,
+  highlight,
+}: {
+  courseId: string;
+  resource: Resource;
+  page?: number;
+  highlight?: string;
+}) {
   const url = useAssetUrl(courseId, resource.zipPath, "application/pdf");
   if (!url) return <div className="pdf pdf--empty" />;
 
@@ -87,6 +141,8 @@ function PdfView({ courseId, resource }: { courseId: string; resource: Resource 
       storageKey={`${courseId}:${resource.uid}`}
       downloadName={fileName(resource)}
       sizeLabel={resource.sizeBytes ? formatBytes(resource.sizeBytes) : undefined}
+      initialPage={page}
+      highlight={highlight}
     />
   );
 }

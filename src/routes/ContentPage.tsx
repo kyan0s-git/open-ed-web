@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { db } from "@/storage/db";
 import type { CourseNode, ExerciseItem, PageContent } from "@/content/schema";
 import { Html } from "@/content/Html";
@@ -14,6 +14,7 @@ import { Icon } from "@/ui/icons";
 
 export function ContentPage() {
   const { courseId, pageUid } = useParams({ from: "/c/$courseId/p/$pageUid" });
+  const { page, q } = useSearch({ from: "/c/$courseId/p/$pageUid" });
   const loaded = useCourse(courseId);
 
   if (loaded === undefined) return <div className="page" />;
@@ -32,12 +33,22 @@ export function ContentPage() {
   return (
     <ReaderLayout loaded={loaded} currentUid={pageUid}>
       {/* Keyed so per-page state (a played video, a quiz in progress) resets on navigation. */}
-      <Item key={pageUid} loaded={loaded} uid={pageUid} />
+      <Item key={pageUid} loaded={loaded} uid={pageUid} page={page} highlight={q} />
     </ReaderLayout>
   );
 }
 
-function Item({ loaded, uid }: { loaded: LoadedCourse; uid: string }) {
+function Item({
+  loaded,
+  uid,
+  page,
+  highlight,
+}: {
+  loaded: LoadedCourse;
+  uid: string;
+  page?: number;
+  highlight?: string;
+}) {
   const { course } = loaded;
   const node = loaded.byUid.get(uid)!;
   const resource = loaded.resourceByUid.get(uid);
@@ -109,7 +120,7 @@ function Item({ loaded, uid }: { loaded: LoadedCourse; uid: string }) {
         </button>
       </div>
 
-      {resource && <ResourceView courseId={course.id} resource={resource} />}
+      {resource && <ResourceView courseId={course.id} resource={resource} page={page} highlight={highlight} />}
 
       {resource?.descriptionHtml && !/^<p>This resource contains information/i.test(resource.descriptionHtml) && (
         <div
@@ -120,7 +131,7 @@ function Item({ loaded, uid }: { loaded: LoadedCourse; uid: string }) {
       )}
 
       {content && content.html.trim() && (
-        <Html html={content.html} courseId={course.id} pageDir={node.path} maps={loaded.maps} />
+        <Html html={content.html} courseId={course.id} pageDir={node.path} maps={loaded.maps} highlight={highlight} />
       )}
 
       {unlinkedMaterials.length > 0 && (

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { UnsupportedArchiveError, type ImportProgress } from "@/import/pipeline";
 import { runImport } from "@/import/run-import";
 import { evictCourse } from "./useCourse";
+import { resetSearch } from "@/search/client";
 import type { CourseBundle } from "@/content/schema";
 import { Icon } from "@/ui/icons";
 
@@ -28,6 +29,9 @@ export function ImportPage() {
         );
         // A re-import replaces the course; drop anything cached from the old copy.
         evictCourse(bundle.course.id);
+        resetSearch();
+        // Read the course's PDFs into search in the background; it is usable meanwhile.
+        void import("@/search/pdf-indexer").then(({ indexPdfText }) => indexPdfText());
 
         // Go straight to the course when there is nothing worth reporting.
         if (bundle.warnings.length === 0) {

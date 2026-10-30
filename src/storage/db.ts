@@ -8,6 +8,7 @@ import type {
   Skill,
   CourseBundle,
 } from "@/content/schema";
+import type { SearchDoc } from "@/search/engine";
 
 /**
  * A derived cache of parsed course content.
@@ -31,6 +32,14 @@ interface StoredExercise extends ExerciseItem {
   courseId: string;
 }
 
+/** One PDF whose text has been indexed (or could not be), so indexing can resume. */
+export interface PdfIndexEntry {
+  /** courseId|zipPath */
+  key: string;
+  courseId: string;
+  status: "done" | "failed";
+}
+
 class ContentDb extends Dexie {
   courses!: EntityTable<Course, "id">;
   nodes!: EntityTable<StoredNode, "uid">;
@@ -38,6 +47,8 @@ class ContentDb extends Dexie {
   resources!: EntityTable<StoredResource, "uid">;
   exercises!: EntityTable<StoredExercise, "id">;
   skills!: EntityTable<Skill, "id">;
+  searchDocs!: EntityTable<SearchDoc, "id">;
+  pdfIndex!: EntityTable<PdfIndexEntry, "key">;
 
   constructor() {
     super("open-ed-web/content");
@@ -49,30 +60,49 @@ class ContentDb extends Dexie {
       exercises: "id, courseId, skillId",
       skills: "id, courseId, nodeUid",
     });
+    // Search: documents for pages and materials, plus the text of every PDF page.
+    this.version(2).stores({
+      searchDocs: "id, courseId",
+      pdfIndex: "key, courseId",
+    });
   }
 }
 
 export const db = new ContentDb();
 
-/** Replace a course wholesale, so re-importing never leaves stale rows behind. */
-export async function saveCourseBundle(bundle: CourseBundle): Promise<void> {
+const ALL_TABLES = () => [
+  db.courses,
+  db.nodes,
+  db.pages,
+  db.resources,
+  db.exercises,
+  db.skills,
+  db.searchDocs,
+  db.pdfIndex,
+];
+
+/**
+ * Replace a course wholesale, so re-importing never leaves stale rows behind. Its PDF
+ * text is re-indexed in the background afterwards.
+ */
+export async function saveCourseBundle(
+  bundle: CourseBundle,
+  searchDocs: SearchDoc[],
+): Promise<void> {
   const courseId = bundle.course.id;
   const tag = <T>(rows: T[]): (T & { courseId: string })[] =>
     rows.map((row) => ({ ...row, courseId }));
 
-  await db.transaction(
-    "rw",
-    [db.courses, db.nodes, db.pages, db.resources, db.exercises, db.skills],
-    async () => {
-      await deleteCourseRows(courseId);
-      await db.courses.put(bundle.course);
-      await db.nodes.bulkPut(tag(bundle.nodes));
-      await db.pages.bulkPut(tag(bundle.pages));
-      await db.resources.bulkPut(tag(bundle.resources));
-      await db.exercises.bulkPut(tag(bundle.exercises));
-      await db.skills.bulkPut(bundle.skills);
-    },
-  );
+  await db.transaction("rw", ALL_TABLES(), async () => {
+    await deleteCourseRows(courseId);
+    await db.courses.put(bundle.course);
+    await db.nodes.bulkPut(tag(bundle.nodes));
+    await db.pages.bulkPut(tag(bundle.pages));
+    await db.resources.bulkPut(tag(bundle.resources));
+    await db.exercises.bulkPut(tag(bundle.exercises));
+    await db.skills.bulkPut(bundle.skills);
+    await db.searchDocs.bulkPut(searchDocs);
+  });
 }
 
 async function deleteCourseRows(courseId: string): Promise<void> {
@@ -82,18 +112,16 @@ async function deleteCourseRows(courseId: string): Promise<void> {
     db.resources.where("courseId").equals(courseId).delete(),
     db.exercises.where("courseId").equals(courseId).delete(),
     db.skills.where("courseId").equals(courseId).delete(),
+    db.searchDocs.where("courseId").equals(courseId).delete(),
+    db.pdfIndex.where("courseId").equals(courseId).delete(),
   ]);
 }
 
 export async function deleteCourse(courseId: string): Promise<void> {
-  await db.transaction(
-    "rw",
-    [db.courses, db.nodes, db.pages, db.resources, db.exercises, db.skills],
-    async () => {
-      await deleteCourseRows(courseId);
-      await db.courses.delete(courseId);
-    },
-  );
+  await db.transaction("rw", ALL_TABLES(), async () => {
+    await deleteCourseRows(courseId);
+    await db.courses.delete(courseId);
+  });
 }
 
 export async function listCourses(): Promise<Course[]> {

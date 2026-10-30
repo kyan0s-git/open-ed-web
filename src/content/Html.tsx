@@ -5,6 +5,7 @@ import { guessMime, lookupAsset, type CourseMaps } from "./maps";
 import { resolveHref } from "./paths";
 import { sanitizeCourseHtml } from "./sanitize";
 import { hasMath, typesetMath } from "./math";
+import { highlight as highlightText, tokenize } from "@/search/text";
 
 /**
  * Renders course HTML.
@@ -22,9 +23,11 @@ export interface HtmlProps {
   pageDir: string;
   maps: CourseMaps;
   className?: string;
+  /** Words to highlight, e.g. the search that led to this page. */
+  highlight?: string;
 }
 
-export function Html({ html, courseId, pageDir, maps, className = "prose" }: HtmlProps) {
+export function Html({ html, courseId, pageDir, maps, className = "prose", highlight }: HtmlProps) {
   const container = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const clean = useMemo(() => sanitizeCourseHtml(html), [html]);
@@ -85,12 +88,13 @@ export function Html({ html, courseId, pageDir, maps, className = "prose" }: Htm
       wrap.append(table);
     }
 
+    if (highlight) markText(root, highlight);
     if (hasMath(clean)) void typesetMath(root);
 
     return () => {
       live = false;
     };
-  }, [clean, courseId, pageDir, maps]);
+  }, [clean, courseId, pageDir, maps, highlight]);
 
   // Internal links navigate in-app, so the reader keeps its state.
   const onClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -109,4 +113,42 @@ export function Html({ html, courseId, pageDir, maps, className = "prose" }: Htm
       dangerouslySetInnerHTML={{ __html: clean }}
     />
   );
+}
+
+/**
+ * Wrap the words a search matched in <mark>, walking text nodes only so markup and
+ * links are untouched, and bring the first one into view.
+ */
+function markText(root: HTMLElement, query: string): void {
+  const terms = tokenize(query).filter((term) => term.length > 1);
+  if (terms.length === 0) return;
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) =>
+      node.parentElement?.closest("mark, script, style, mjx-container") ||
+      // TeX not yet typeset: marking inside it would break the formula.
+      hasMath((node as Text).data)
+        ? NodeFilter.FILTER_REJECT
+        : NodeFilter.FILTER_ACCEPT,
+  });
+
+  const nodes: Text[] = [];
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node as Text);
+
+  let first: HTMLElement | null = null;
+  for (const node of nodes) {
+    const segments = highlightText(node.data, terms);
+    if (!segments.some((segment) => segment.match)) continue;
+    node.replaceWith(
+      ...segments.map((segment) => {
+        if (!segment.match) return document.createTextNode(segment.text);
+        const mark = document.createElement("mark");
+        mark.textContent = segment.text;
+        first ??= mark;
+        return mark;
+      }),
+    );
+  }
+
+  (first as HTMLElement | null)?.scrollIntoView({ block: "center" });
 }

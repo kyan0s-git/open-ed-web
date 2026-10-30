@@ -1,5 +1,6 @@
 import type { CourseBundle } from "@/content/schema";
 import { saveCourseBundle } from "@/storage/db";
+import { docsFromBundle } from "@/search/docs";
 import { requestPersistence, writeCourseArchive, readCourseArchive } from "@/storage/opfs";
 import { detectFormat, type ArchiveFormat } from "./detect";
 import { parseOcwHugoJson } from "./ocw-hugo-json";
@@ -59,7 +60,7 @@ export async function importCourseArchive(
     });
 
     report("Indexing");
-    await saveCourseBundle(bundle);
+    await saveCourseBundle(bundle, docsFromBundle(bundle));
 
     report("Done", 1, 1);
     return { bundle, format: detection.format };

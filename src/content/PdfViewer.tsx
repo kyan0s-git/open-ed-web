@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from "pdfjs-dist";
 import { Icon } from "@/ui/icons";
+import { loadPdfJs, PDF_SUPPORT, type PdfJs } from "./pdfjs";
+import { highlight as highlightText, tokenize } from "@/search/text";
 
 /**
  * A PDF viewer built on pdf.js — the engine inside Firefox's viewer — with only the
@@ -21,29 +23,6 @@ const ZOOM_STEP = 1.2;
 /** Render pages this far outside the visible area, so scrolling stays smooth. */
 const RENDER_MARGIN = "900px 0px";
 
-type PdfJs = typeof import("pdfjs-dist");
-
-let pdfjsLoading: Promise<PdfJs> | null = null;
-
-/**
- * The legacy build, deliberately. pdf.js's default build targets only the newest
- * browsers — it calls Map.prototype.getOrInsertComputed, which many current browsers
- * do not have yet — and the legacy build is the same code with those polyfilled, in
- * the worker as well. About 19 KB more, for a viewer that opens everywhere.
- */
-function loadPdfJs(): Promise<PdfJs> {
-  pdfjsLoading ??= Promise.all([
-    import("pdfjs-dist/legacy/build/pdf.mjs") as Promise<PdfJs>,
-    import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url"),
-  ]).then(([pdfjs, worker]) => {
-    pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-    return pdfjs;
-  });
-  return pdfjsLoading;
-}
-
-const VENDOR = `${import.meta.env.BASE_URL}vendor/pdfjs`;
-
 interface Props {
   url: string;
   title: string;
@@ -51,9 +30,13 @@ interface Props {
   storageKey: string;
   downloadName: string;
   sizeLabel?: string;
+  /** Open at this page instead of the one last read, e.g. from a search result. */
+  initialPage?: number;
+  /** Words to highlight in the text, e.g. the search that led here. */
+  highlight?: string;
 }
 
-export function PdfViewer({ url, title, storageKey, downloadName, sizeLabel }: Props) {
+export function PdfViewer({ url, title, storageKey, downloadName, sizeLabel, initialPage, highlight }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [pdfjs, setPdfjs] = useState<PdfJs | null>(null);
@@ -76,15 +59,7 @@ export function PdfViewer({ url, title, storageKey, downloadName, sizeLabel }: P
     loadPdfJs()
       .then(async (lib) => {
         if (!live) return;
-        // Every support file comes from this site, so PDFs open offline.
-        task = lib.getDocument({
-          url,
-          standardFontDataUrl: `${VENDOR}/standard_fonts/`,
-          cMapUrl: `${VENDOR}/cmaps/`,
-          cMapPacked: true,
-          iccUrl: `${VENDOR}/iccs/`,
-          wasmUrl: `${VENDOR}/wasm/`,
-        });
+        task = lib.getDocument({ url, ...PDF_SUPPORT });
         const document = await task.promise;
         const first = await document.getPage(1);
         const viewport = first.getViewport({ scale: 1 });
@@ -115,14 +90,28 @@ export function PdfViewer({ url, title, storageKey, downloadName, sizeLabel }: P
     return () => observer.disconnect();
   }, [baseSize, fit]);
 
-  // Return to the last page read in this document.
+  /**
+   * Scroll the viewer — and only the viewer. scrollIntoView would also scroll the
+   * window, pushing the toolbar out of sight.
+   */
+  const scrollToPage = (number: number, behavior: ScrollBehavior) => {
+    const box = scroller.current;
+    const sheet = pageRefs.current[number - 1];
+    if (!box || !sheet) return;
+    // The scroller is the sheets' offset parent (position: relative), so this is exact.
+    box.scrollTo({ top: sheet.offsetTop - 16, behavior });
+  };
+
+  // Open at the requested page, or return to the last page read in this document.
   useEffect(() => {
     if (!doc) return;
-    const saved = Number(readValue(`open-ed-web:pdf-page:${storageKey}`));
-    if (saved > 1 && saved <= doc.numPages) {
-      requestAnimationFrame(() => pageRefs.current[saved - 1]?.scrollIntoView({ block: "start" }));
+    const target = initialPage ?? Number(readValue(`open-ed-web:pdf-page:${storageKey}`));
+    if (target > 1 && target <= doc.numPages) {
+      requestAnimationFrame(() => scrollToPage(target, "instant"));
     }
-  }, [doc, storageKey]);
+  }, [doc, storageKey, initialPage]);
+
+  const terms = useMemo(() => (highlight ? tokenize(highlight).filter((t) => t.length > 1) : []), [highlight]);
 
   // Track which page is in view.
   useEffect(() => {
@@ -160,7 +149,7 @@ export function PdfViewer({ url, title, storageKey, downloadName, sizeLabel }: P
     (target: number) => {
       if (!doc) return;
       const clamped = Math.min(doc.numPages, Math.max(1, target));
-      pageRefs.current[clamped - 1]?.scrollIntoView({ block: "start", behavior: "smooth" });
+      scrollToPage(clamped, "smooth");
     },
     [doc],
   );
@@ -273,6 +262,7 @@ export function PdfViewer({ url, title, storageKey, downloadName, sizeLabel }: P
               scale={scale}
               placeholder={baseSize}
               root={scroller}
+              terms={terms}
               setRef={(element) => {
                 pageRefs.current[i] = element;
               }}
@@ -290,6 +280,7 @@ function PdfPage({
   scale,
   placeholder,
   root,
+  terms,
   setRef,
 }: {
   pdfjs: PdfJs;
@@ -298,6 +289,7 @@ function PdfPage({
   scale: number;
   placeholder: { width: number; height: number };
   root: React.RefObject<HTMLDivElement | null>;
+  terms: string[];
   setRef: (element: HTMLDivElement | null) => void;
 }) {
   const container = useRef<HTMLDivElement | null>(null);
@@ -353,6 +345,7 @@ function PdfPage({
         viewport,
       });
       await layer.render().catch(() => {});
+      if (!cancelled && textLayer.current) markTerms(textLayer.current, terms);
     });
 
     return () => {
@@ -360,7 +353,7 @@ function PdfPage({
       renderTask?.cancel();
       pdfPage?.cleanup();
     };
-  }, [near, doc, index, scale, pdfjs]);
+  }, [near, doc, index, scale, pdfjs, terms]);
 
   return (
     <div
@@ -387,6 +380,30 @@ function PdfPage({
       {near && <div ref={textLayer} className="textLayer" />}
     </div>
   );
+}
+
+/**
+ * Wrap matched words in the text layer so they show through the page. The layer's text
+ * is transparent and positioned over the canvas, so wrapping part of a run in an inline
+ * element keeps its position — the same approach as the browser's own PDF find.
+ */
+function markTerms(layer: HTMLElement, terms: string[]): void {
+  if (terms.length === 0) return;
+  for (const span of layer.querySelectorAll<HTMLSpanElement>("span:not(.markedContent)")) {
+    if (span.children.length > 0) continue;
+    const segments = highlightText(span.textContent ?? "", terms);
+    if (!segments.some((segment) => segment.match)) continue;
+
+    span.replaceChildren(
+      ...segments.map((segment) => {
+        if (!segment.match) return document.createTextNode(segment.text);
+        const hit = document.createElement("span");
+        hit.className = "pdf-hit";
+        hit.textContent = segment.text;
+        return hit;
+      }),
+    );
+  }
 }
 
 function clamp(scale: number): number {

@@ -52,6 +52,10 @@
 
   --warn: #8a5a00;
 
+  /* Search highlights. */
+  --mark-bg: color-mix(in srgb, #a64b23 22%, transparent);
+  --mark-ink: inherit;
+
   --shadow: 0 1px 2px rgb(40 30 20 / 0.06), 0 4px 16px rgb(40 30 20 / 0.05);
 
   --radius-sm: 4px;
@@ -97,6 +101,9 @@
   --teal-4: #8fd6c8;
   --teal-wash: color-mix(in srgb, #56b3a3 13%, #1b1e22);
   --warn: #e0b052;
+  /* A tint of orange over dark grey reads as brown; a light solid highlight does not. */
+  --mark-bg: #f6b48c;
+  --mark-ink: #131518;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 6px 20px rgb(0 0 0 / 0.3);
 }
 
@@ -128,6 +135,9 @@
     --teal-4: #8fd6c8;
     --teal-wash: color-mix(in srgb, #56b3a3 13%, #1b1e22);
     --warn: #e0b052;
+  /* A tint of orange over dark grey reads as brown; a light solid highlight does not. */
+  --mark-bg: #f6b48c;
+  --mark-ink: #131518;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 6px 20px rgb(0 0 0 / 0.3);
   }
 }

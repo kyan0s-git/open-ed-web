@@ -24,9 +24,13 @@ Spring 2016: 157 materials, 146 skills, parsed in about 600 ms):
   archive and a download link.
 - **Mastery**: FSRS scheduling from self-ratings and from OCW's own quiz questions, one
   review queue across every course.
+- **Search** across every course: page text, material titles, and the full text of
+  every lecture note, problem set, exam and video transcript. Results appear as you
+  type, accents and small typos are forgiven, and a hit inside a PDF opens the viewer
+  at that page with the words highlighted. Press `/` anywhere to search.
 - **Light and dark** themes, following the system unless you pick one.
 
-Search and installing as an offline app are still to come.
+Installing as an offline app is still to come.
 
 ## Development
 
@@ -48,8 +52,13 @@ that CI enforces with `npm run size`. Everything heavy loads only when a page ne
 | --- | --- | --- |
 | A course is opened | archive reader, content database | ~90 KB |
 | A PDF is opened | pdf.js, plus its worker (cached after) | ~150 KB + ~380 KB |
+| Search is used | search worker with MiniSearch | ~35 KB |
 | A page contains math | MathJax with fonts | ~600 KB |
 | Text is shown | two variable fonts, only the faces and scripts used | ~35–90 KB |
+
+PDF text for search is read in the background after an import — about 8 seconds for
+8.04's 148 PDFs — so a course opens immediately and its search results fill in. Progress
+is saved per file, so an interrupted run picks up where it stopped.
 
 MathJax and pdf.js's support files are copied into `public/vendor` by `npm run vendor`
 (run automatically before `dev` and `build`), so nothing is fetched from a CDN and both

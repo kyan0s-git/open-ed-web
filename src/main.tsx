@@ -18,3 +18,9 @@ createRoot(container).render(
     <RouterProvider router={router} />
   </StrictMode>,
 );
+
+// Finish reading any course PDFs into search that an earlier session left unfinished.
+// Deferred until the browser is idle, and it loads nothing heavy when nothing is pending.
+const resumeIndexing = () => void import("./search/pdf-indexer").then(({ indexPdfText }) => indexPdfText());
+if ("requestIdleCallback" in window) requestIdleCallback(resumeIndexing, { timeout: 5000 });
+else setTimeout(resumeIndexing, 3000);

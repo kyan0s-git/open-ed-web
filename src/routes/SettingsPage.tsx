@@ -9,6 +9,7 @@ import { setThemePreference, useThemePreference, type ThemePreference } from "@/
 import { Icon, type IconName } from "@/ui/icons";
 import { formatBytes } from "@/content/ResourceView";
 import { evictCourse } from "./useCourse";
+import { resetSearch } from "@/search/client";
 
 const THEMES: { value: ThemePreference; label: string; icon: IconName }[] = [
   { value: "system", label: "System", icon: "system" },
@@ -60,6 +61,7 @@ export function SettingsPage() {
     await releaseCourse(course.id);
     await deleteCourse(course.id);
     await deleteCourseArchive(course.id);
+    resetSearch();
     refresh();
   };
 

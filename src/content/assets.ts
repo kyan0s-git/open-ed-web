@@ -24,6 +24,11 @@ function archiveFor(courseId: string): Promise<Archive> {
   return archive;
 }
 
+/** Read one file out of a stored course archive. */
+export async function readAsset(courseId: string, zipPath: string, mime?: string): Promise<Blob> {
+  return (await archiveFor(courseId)).blob(zipPath, mime);
+}
+
 export async function assetUrl(
   courseId: string,
   zipPath: string,

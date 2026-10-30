@@ -107,6 +107,33 @@ test("progress survives a reload and exports as readable JSON", async ({ page })
   expect(Object.values(doc.activity)).toEqual([expect.objectContaining({ reviews: 1 })]);
 });
 
+test("search finds pages as you type and PDF text once indexed", async ({ page }) => {
+  await importFixture(page);
+
+  // "/" opens search, scoped to the course you are in.
+  await page.keyboard.press("/");
+  await expect(page).toHaveURL(/\/search\?course=/);
+  const box = page.getByRole("searchbox", { name: "Search" });
+  await expect(box).toBeFocused();
+
+  // Pages and titles are searchable straight after import.
+  await box.fill("associative");
+  await expect(page.locator(".result").first()).toContainText("2. Widget Algebra");
+
+  // PDF text arrives from the background indexer; accents and case are optional.
+  await box.fill("LECTURE ONE widget");
+  await page.getByRole("button", { name: "Notes & PDFs" }).click();
+  const hit = page.locator(".result").filter({ hasText: "PDF · page 1" });
+  await expect(hit).toBeVisible({ timeout: 30_000 });
+  await expect(hit.locator("mark").first()).toBeVisible();
+
+  // Opening it lands in the viewer with the words highlighted in the page text.
+  await hit.click();
+  await expect(page.getByRole("heading", { name: "Lecture 1 Notes", level: 1 })).toBeVisible();
+  await expect(page.locator(".textLayer .pdf-hit").first()).toBeVisible({ timeout: 15_000 });
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
 test("the theme toggle switches and persists across reloads", async ({ page }) => {
   await page.goto("/");
   const toggle = page.getByRole("button", { name: /Theme:/ });
