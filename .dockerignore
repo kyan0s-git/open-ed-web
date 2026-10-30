@@ -1,0 +1,12 @@
+node_modules
+dist
+server-dist
+src-tauri/target
+src-tauri/gen
+fixtures/*.zip
+test-results
+playwright-report
+data
+.git
+.wrangler
+.vercel

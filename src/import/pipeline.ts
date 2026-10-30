@@ -40,7 +40,6 @@ export async function importCourseArchive(
   const report = (step: string, done = 0, total = 1) => onProgress({ step, done, total });
 
   report("Reading archive");
-  const courseId = await hashSource(file);
   const archive = await Archive.open(file);
 
   try {
@@ -48,6 +47,7 @@ export async function importCourseArchive(
     if (detection.format !== "ocw-hugo-json") {
       throw new UnsupportedArchiveError(detection.format, explain(detection.format));
     }
+    const courseId = (await siteUid(archive, detection.base)) ?? (await hashSource(file));
 
     report("Saving archive");
     await requestPersistence();
@@ -55,7 +55,7 @@ export async function importCourseArchive(
 
     const bundle = await parseOcwHugoJson(archive, detection, {
       courseId,
-      sourceHash: courseId,
+      sourceHash: await hashSource(file),
       onProgress: (step, done, total) => report(step, done, total),
     });
 
@@ -86,8 +86,23 @@ function explain(format: ArchiveFormat): string {
 }
 
 /**
- * Identify a course by its bytes, so re-importing the same download updates the course
- * in place and keeps existing progress attached to it.
+ * Identify a course by OCW's own id for it, so the same course has the same id on every
+ * device and in every download: progress synced from another machine attaches to it,
+ * and re-importing a newer download of the course updates it in place.
+ */
+async function siteUid(archive: Archive, base: string): Promise<string | null> {
+  try {
+    const data = await archive.json<{ site_uid?: unknown }>(`${base}data.json`);
+    const uid = typeof data.site_uid === "string" ? data.site_uid.toLowerCase() : "";
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(uid) ? uid : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Archives without an OCW id are identified by their bytes instead, so re-importing the
+ * same download still updates the course in place and keeps its progress attached.
  *
  * Hashing only the ends plus the length keeps this O(1) on a large file while still
  * distinguishing courses; a zip's central directory lives at the tail, so the last

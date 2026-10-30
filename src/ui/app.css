@@ -1640,3 +1640,108 @@ mark {
 .pdf[data-dimmed="true"] .textLayer .pdf-hit {
   background: rgb(0 85 255 / 0.4);
 }
+
+/* Form fields */
+.field {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 34rem;
+}
+
+.field > span {
+  font-weight: 600;
+  font-size: var(--step--1);
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-md);
+  background: var(--paper-raised);
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  resize: vertical;
+}
+
+.field input:focus-visible,
+.field textarea:focus-visible {
+  outline: 2px solid var(--clay);
+  outline-offset: 0;
+}
+
+/* Sync */
+.syncstate {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.syncstate__dot {
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--teal-3);
+}
+
+.syncstate[data-state="syncing"] .syncstate__dot {
+  background: var(--ink-faint);
+  animation: pulse 1s ease-in-out infinite alternate;
+}
+
+.syncstate[data-state="error"] .syncstate__dot {
+  background: var(--warn);
+}
+
+@keyframes pulse {
+  to {
+    opacity: 0.3;
+  }
+}
+
+.pairing {
+  display: grid;
+  grid-template-columns: 11rem 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 34rem) {
+  .pairing {
+    grid-template-columns: 1fr;
+  }
+}
+
+.qr {
+  display: block;
+  width: 100%;
+  max-width: 11rem;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+}
+
+/* QR codes need dark-on-light contrast to scan, so they stay light in dark mode too. */
+.qr__bg {
+  fill: #fff;
+}
+
+.qr__ink {
+  fill: #111;
+}
+
+.pairing__link {
+  display: block;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: var(--paper-sunken);
+  font-size: var(--step--1);
+  overflow-wrap: anywhere;
+}
+
+.danger summary {
+  cursor: pointer;
+  color: var(--ink-muted);
+}

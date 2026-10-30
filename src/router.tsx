@@ -87,7 +87,14 @@ const settingsRoute = createRoute({
   component: lazyRouteComponent(() => import("./routes/SettingsPage"), "SettingsPage"),
 });
 
+const pairRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/pair",
+  component: lazyRouteComponent(() => import("./routes/PairPage"), "PairPage"),
+});
+
 const routeTree = rootRoute.addChildren([
+  pairRoute,
   indexRoute,
   coursesRoute,
   importRoute,

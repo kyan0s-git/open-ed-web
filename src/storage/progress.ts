@@ -218,3 +218,18 @@ function newer(a: string, b: string): boolean {
 function max(a: string, b: string): string {
   return a >= b ? a : b;
 }
+
+/**
+ * The document's records as JSON with object keys sorted, so two documents holding the
+ * same records compare equal however their keys were inserted. The document-level
+ * `updatedAt` is left out: it says when a copy was last touched, not what it holds, and
+ * two devices with identical progress would otherwise always look different. Sync uses
+ * this to tell whether a merge changed anything worth uploading.
+ */
+export function canonicalProgress(doc: ProgressDoc): string {
+  return JSON.stringify({ ...doc, updatedAt: undefined }, (_key, value: unknown) =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : value,
+  );
+}

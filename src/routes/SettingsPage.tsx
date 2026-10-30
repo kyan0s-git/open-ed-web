@@ -10,6 +10,7 @@ import { Icon, type IconName } from "@/ui/icons";
 import { formatBytes } from "@/content/ResourceView";
 import { evictCourse } from "./useCourse";
 import { resetSearch } from "@/search/client";
+import { SyncSettings } from "@/sync/SyncSettings";
 
 const THEMES: { value: ThemePreference; label: string; icon: IconName }[] = [
   { value: "system", label: "System", icon: "system" },
@@ -88,12 +89,12 @@ export function SettingsPage() {
         <p className="muted" style={{ margin: 0 }}>
           Everything you have read and reviewed lives in one <code>progress.json</code> file —{" "}
           {courseCount === 1 ? "1 course" : `${courseCount} courses`} so far. It is plain, readable JSON:
-          export it to back it up or move it to another machine, or keep it in a synced folder. There is
-          no account and no server.
+          export it to back it up or move it to another machine, keep it in a synced folder, or turn on sync
+          below. There is no account.
         </p>
 
         <div className="row">
-          <button className="btn" type="button" onClick={() => downloadProgress(progress)}>
+          <button className="btn" type="button" onClick={() => void downloadProgress(progress)}>
             <Icon name="download" /> Export progress.json
           </button>
           <button className="btn btn--quiet" type="button" onClick={() => fileInput.current?.click()}>
@@ -128,6 +129,8 @@ export function SettingsPage() {
           </p>
         )}
       </section>
+
+      <SyncSettings />
 
       <section className="section stack">
         <h2 style={{ margin: 0 }}>Stored courses</h2>

@@ -1,5 +1,7 @@
+import { saveFile } from "@/desktop";
 import { readFileText, renameFile, writeFileAtomic } from "./opfs";
 import {
+  canonicalProgress,
   emptyProgress,
   mergeProgress,
   parseProgress,
@@ -22,7 +24,12 @@ import {
 const FILE_NAME = "progress.json";
 const FLUSH_DELAY_MS = 800;
 
-type Listener = (doc: ProgressDoc) => void;
+/**
+ * Why listeners are being called: "local" for a change made on this device, "merge" for
+ * progress arriving from elsewhere, "loaded" and "saved" for file activity.
+ */
+export type ChangeSource = "local" | "merge" | "loaded" | "saved";
+type Listener = (doc: ProgressDoc, source: ChangeSource) => void;
 
 export class ProgressStore {
   #doc: ProgressDoc = emptyProgress();
@@ -61,7 +68,7 @@ export class ProgressStore {
         this.#doc = emptyProgress();
       }
     }
-    this.#emit();
+    this.#emit("loaded");
     return this.#doc;
   }
 
@@ -101,6 +108,21 @@ export class ProgressStore {
     this.#doc = mergeProgress(this.#doc, incoming);
     this.#emit();
     await this.flush();
+    return this.#doc;
+  }
+
+  /**
+   * Merge progress that arrived from another device. Unlike a local change this does
+   * not touch `updatedAt`: nothing happened here, so the timestamps stay as recorded.
+   * Returns the document after the merge.
+   */
+  async mergeIn(incoming: ProgressDoc): Promise<ProgressDoc> {
+    const merged = mergeProgress(this.#doc, incoming);
+    if (canonicalProgress(merged) !== canonicalProgress(this.#doc)) {
+      this.#doc = merged;
+      this.#emit("merge");
+      await this.flush();
+    }
     return this.#doc;
   }
 
@@ -144,7 +166,7 @@ export class ProgressStore {
     } catch (error) {
       this.#lastError = error as Error;
     }
-    this.#emit();
+    this.#emit("saved");
   }
 
   /** Bind to a file the user picks, so saves land where they can see them. */
@@ -157,8 +179,8 @@ export class ProgressStore {
     this.#handle = null;
   }
 
-  #emit(): void {
-    for (const listener of this.#listeners) listener(this.#doc);
+  #emit(source: ChangeSource = "local"): void {
+    for (const listener of this.#listeners) listener(this.#doc, source);
   }
 }
 
@@ -184,15 +206,8 @@ if (typeof document !== "undefined") {
 }
 
 /** Offer the document as a download — the fallback everywhere without a file picker. */
-export function downloadProgress(doc: ProgressDoc, filename = FILE_NAME): void {
-  const url = URL.createObjectURL(
-    new Blob([serializeProgress(doc)], { type: "application/json" }),
-  );
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+export function downloadProgress(doc: ProgressDoc, filename = FILE_NAME): Promise<void> {
+  return saveFile(new Blob([serializeProgress(doc)], { type: "application/json" }), filename);
 }
 
 export function filePickerSupported(): boolean {

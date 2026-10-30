@@ -1,0 +1,18 @@
+{
+  // The sync server and its host adapters. Separate from the app's config because it
+  // targets server runtimes (Node, Workers) rather than the DOM-plus-Vite world.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["server", "api"]
+}

@@ -13,3 +13,9 @@ shot-*.png
 
 # Copied from node_modules by scripts/vendor.mjs
 public/vendor/
+server-dist/
+data/
+src-tauri/target/
+src-tauri/gen/
+.wrangler/
+.vercel/

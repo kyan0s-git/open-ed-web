@@ -20,3 +20,28 @@ jobs:
       - run: npm run build
       # Fails if the initial payload exceeds the budget the project is built around.
       - run: npm run size
+      - run: npm run build:server
+
+      # End to end, against the self-hosted server (web app + sync API).
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+
+  desktop:
+    # Compile the desktop shell, so a broken build shows up here rather than at release.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: npm ci
+      - run: npm run build
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings

@@ -1,51 +1,86 @@
 # open-ed-web
 
-Read MIT OpenCourseWare course archives as structured, mastery-tracked courses.
+Study MIT OpenCourseWare courses as structured, mastery-tracked courses: in the browser,
+as a desktop app, or both, with your progress kept in step across devices.
 
-Everything runs in the browser. A course `.zip` never leaves your machine: it is stored
-once in the browser's private file system and read by random access, so a 250 MB course
-costs one write and no unpacking. Your progress lives in a portable `progress.json` you
-can export, back up, or keep in a synced folder — there is no server and no database to run.
+You download a course from [ocw.mit.edu](https://ocw.mit.edu) as a `.zip` and import it.
+The archive stays on your device. It is stored once and read in place, with nothing unpacked,
+so a 250 MB course costs one write. Your progress lives in a portable `progress.json`. You can
+export it, keep it in a folder you choose, or sync it between devices. Sync is end-to-end
+encrypted, so the server only ever holds data it cannot read.
 
-## Status
+## Features
 
-Working end to end, and verified against a real download (8.04 Quantum Physics I,
-Spring 2016: 157 materials, 146 skills, parsed in about 600 ms):
+- **Dashboard**: reviews due, your streak, materials finished, overall mastery, a two-week
+  activity chart, and "continue where you left off".
+- **Reader**: follows the course's own sidebar, with breadcrumbs, previous/next in study
+  order (`p` / `n`) and a drawer on small screens.
+- **PDF viewer** built on pdf.js: themed toolbar, zoom and fit to width, selectable text,
+  a dimmed mode for night reading. It remembers your page.
+- **Math** typeset by MathJax, including spoken equations for screen readers.
+- **Videos** from YouTube via the ids the archive carries, with transcripts from the archive.
+- **Mastery**: spaced repetition (FSRS) from your own ratings and OCW's quiz questions, with
+  one review queue across every course.
+- **Search** across every course, including the full text of every PDF and transcript.
+  Press `/` anywhere.
+- **Sync** between devices with a link or QR code. There are no accounts, and progress is
+  encrypted on the device before it leaves it.
+- **Desktop app** for Windows, macOS and Linux, from the same code.
+- **Light and dark** themes.
 
-- **Dashboard** with what is due, your streak, materials finished, overall mastery, a
-  two-week activity chart and "continue where you left off".
-- **Reader** that follows the course's own sidebar, with breadcrumbs, previous/next in
-  study order (`p` / `n` on the keyboard) and a drawer on small screens.
-- **PDF viewer** built on pdf.js: themed toolbar, zoom and fit-to-width, selectable
-  text, a dimmed mode for reading at night, and it remembers your page.
-- **Math** typeset by MathJax, the renderer OCW authors against, including spoken
-  equations for screen readers.
-- **Videos** from YouTube via the ids the archive carries, with transcripts from the
-  archive and a download link.
-- **Mastery**: FSRS scheduling from self-ratings and from OCW's own quiz questions, one
-  review queue across every course.
-- **Search** across every course: page text, material titles, and the full text of
-  every lecture note, problem set, exam and video transcript. Results appear as you
-  type, accents and small typos are forgiven, and a hit inside a PDF opens the viewer
-  at that page with the words highlighted. Press `/` anywhere to search.
-- **Light and dark** themes, following the system unless you pick one.
+## Getting started
 
-Installing as an offline app is still to come.
+| I want to… | Read |
+| --- | --- |
+| Use the app: import a course, study, review, sync | [docs/user-guide.md](docs/user-guide.md) |
+| Host my own copy: Cloudflare, Vercel, Docker or any server | [docs/self-hosting.md](docs/self-hosting.md) |
+| Install or build the desktop app, or cut a release | [docs/desktop.md](docs/desktop.md) |
+| Understand how sync works and what the server can see | [docs/sync.md](docs/sync.md) |
+
+The quickest way to your own instance with sync is the Cloudflare free tier:
+
+```sh
+git clone https://github.com/<you>/open-ed-web && cd open-ed-web
+npm install
+npx wrangler@4 login
+npx wrangler@4 d1 create open-ed-web   # paste the database_id into wrangler.jsonc
+npm run deploy:cloudflare
+```
 
 ## Development
 
-```
+Requires Node 20.19 or newer (22 recommended). The desktop app also needs Rust; see
+[docs/desktop.md](docs/desktop.md).
+
+```sh
 npm install
-npm run dev
+npm run dev                   # the web app on http://localhost:5173
 npm test                      # unit tests (fixtures are generated automatically)
 npm run verify                # typecheck, build, size budget, unit tests
-CHROMIUM_PATH=/path/to/chrome npm run e2e   # browser tests
+npm run e2e                   # browser tests against the self-hosted server
+npm run build:server && npm start   # web app + sync API on http://localhost:8787
+npm run desktop:dev           # the desktop app, with hot reload
 OCW_ARCHIVE=/path/to/course.zip npx vitest run real-archive   # parse a real download
 ```
 
+Set `CHROMIUM_PATH` to use an existing Chrome for the browser tests, and `E2E_BASE_URL`
+to run them against another deployment, such as `wrangler dev` or a preview URL.
+
+### Layout
+
+| Path | What |
+| --- | --- |
+| `src/` | The web app (Vite, React 19, TanStack Router) |
+| `src/import/` | Reads OCW archives into courses |
+| `src/sync/` | Client side of sync: encryption, the sync loop, pairing UI |
+| `server/` | The sync API, written once against web-standard `Request`/`Response` |
+| `server/cloudflare.ts`, `api/sync.ts`, `server/node.ts` | Host adapters: Cloudflare Workers, Vercel, Node |
+| `src-tauri/` | The desktop shell (Tauri 2) |
+| `.github/workflows/` | CI, and the release workflow that builds installers |
+
 ### Staying light
 
-The first load is about 132 KB of JavaScript and CSS, gzipped, against a 150 KB budget
+The first load is about 137 KB of JavaScript and CSS, gzipped, against a 150 KB budget
 that CI enforces with `npm run size`. Everything heavy loads only when a page needs it:
 
 | Loaded when | What | Size (gzipped) |
@@ -54,36 +89,34 @@ that CI enforces with `npm run size`. Everything heavy loads only when a page ne
 | A PDF is opened | pdf.js, plus its worker (cached after) | ~150 KB + ~380 KB |
 | Search is used | search worker with MiniSearch | ~35 KB |
 | A page contains math | MathJax with fonts | ~600 KB |
+| Sync is turned on | sync engine (QR code: ~8 KB more, when shown) | ~2 KB |
 | Text is shown | two variable fonts, only the faces and scripts used | ~35–90 KB |
 
-PDF text for search is read in the background after an import — about 8 seconds for
-8.04's 148 PDFs — so a course opens immediately and its search results fill in. Progress
-is saved per file, so an interrupted run picks up where it stopped.
+PDF text for search is read in the background after an import. For 8.04's 148 PDFs that
+takes about 8 seconds, so a course opens immediately and its search results fill in.
 
-MathJax and pdf.js's support files are copied into `public/vendor` by `npm run vendor`
-(run automatically before `dev` and `build`), so nothing is fetched from a CDN and both
+MathJax and pdf.js's support files are copied into `public/vendor` by `npm run vendor`,
+which runs automatically before `dev` and `build`. Nothing is fetched from a CDN, so both
 work offline.
 
 ## How an OCW archive is read
 
 A downloaded OCW course is an offline copy of the published Hugo site. Two things make it
-machine-readable rather than something to scrape:
+machine-readable, so nothing has to be scraped:
 
 - OCW's Hugo config declares `coursedata` and `contentmap` output formats, so the site
-  publishes a `data.json` beside **every** page (front-matter params merged with rendered
-  content) and a `content_map.json` mapping every content uid to its path.
-- Ordering and nesting are *not* in that JSON — Hugo keeps menu definitions out of page
-  params — but the rendered sidebar carries `data-uuid` on every entry.
+  publishes a `data.json` beside **every** page and a `content_map.json` mapping every
+  content uid to its path.
+- Ordering and nesting are *not* in that JSON, but the rendered sidebar carries
+  `data-uuid` on every entry.
 
-So content comes from JSON and structure comes from the rendered nav. Archives without the
-JSON outputs fall back to HTML parsing; pre-2022 IMS packages are detected and reported
-rather than guessed at.
-
-Videos are excluded from OCW archives, but each video resource carries its YouTube id, so
-lecture video works without shipping any media.
+So content comes from JSON and structure comes from the rendered nav. A course is
+identified by OCW's own `site_uid`, so the same course has the same id on every device,
+which is what lets synced progress find its course. Pre-2022 IMS packages are detected and
+reported, not guessed at.
 
 ## License
 
-Code is MIT. Course content is not redistributed by this project — it stays on your machine.
-MIT OpenCourseWare materials are licensed CC BY-NC-SA; the reader displays each course's
-attribution and license.
+Code is MIT (see [LICENSE](LICENSE)). Course content is not redistributed by this project:
+it stays on your device. MIT OpenCourseWare materials are licensed CC BY-NC-SA, and the
+reader shows each course's attribution and license. This project is not affiliated with MIT.
